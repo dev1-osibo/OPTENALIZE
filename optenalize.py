@@ -28,7 +28,15 @@ if uploaded_file:
 # Advanced Missing Value Handling
 if uploaded_file:
     st.write("Data Cleaning Options:")
-    
+
+    # Select Essential Columns
+    essential_columns = st.multiselect(
+        "Select essential columns (rows with missing values here will be deleted):", 
+        options=data.columns, 
+        default=[],
+        help="Choose columns that are critical for your analysis."
+    )
+
     # Display missing value statistics
     st.write("Missing Values Summary:")
     missing_summary = data.isnull().sum() / len(data) * 100
@@ -36,14 +44,25 @@ if uploaded_file:
 
     # Automatically handle missing values
     st.write("Automatically handling missing values:")
-    missing_threshold = st.slider("Drop columns with more than this % missing values", 0, 100, 50)
+    missing_threshold = st.slider(
+        "Drop columns with more than this % missing values", 0, 100, 50, 
+        help="Columns exceeding this threshold will be dropped unless they are essential."
+    )
+
+    # Identify columns to drop
     cols_to_drop = missing_summary[missing_summary > missing_threshold].index
+    cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
+
+    # Warn if essential columns exceed threshold
+    if cols_to_warn:
+        st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
+        cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
+
+    # Drop non-essential columns exceeding threshold
     data = data.drop(columns=cols_to_drop)
     st.success(f"Dropped columns: {list(cols_to_drop)}")
 
     # Handle rows with missing values in selected columns
-    essential_columns = st.multiselect("Select essential columns (rows with missing values here will be deleted):", 
-                                       options=data.columns, default=[])
     if essential_columns:
         data = data.dropna(subset=essential_columns)
         st.success("Dropped rows with missing values in essential columns.")
