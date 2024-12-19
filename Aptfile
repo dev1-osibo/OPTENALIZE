@@ -1,0 +1,4 @@
+libgfortran5
+g++
+python3-dev
+libatlas-base-dev
