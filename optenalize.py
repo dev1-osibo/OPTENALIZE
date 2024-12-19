@@ -24,3 +24,34 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"Error loading file: {e}")
+
+# Advanced Missing Value Handling
+if uploaded_file:
+    st.write("Data Cleaning Options:")
+    
+    # Display missing value statistics
+    st.write("Missing Values Summary:")
+    missing_summary = data.isnull().sum() / len(data) * 100
+    st.dataframe(missing_summary.rename("Missing (%)"))
+
+    # Automatically handle missing values
+    st.write("Automatically handling missing values:")
+    missing_threshold = st.slider("Drop columns with more than this % missing values", 0, 100, 50)
+    cols_to_drop = missing_summary[missing_summary > missing_threshold].index
+    data = data.drop(columns=cols_to_drop)
+    st.success(f"Dropped columns: {list(cols_to_drop)}")
+
+    # Handle rows with missing values in selected columns
+    essential_columns = st.multiselect("Select essential columns (rows with missing values here will be deleted):", 
+                                       options=data.columns, default=[])
+    if essential_columns:
+        data = data.dropna(subset=essential_columns)
+        st.success("Dropped rows with missing values in essential columns.")
+
+    # Impute remaining missing values
+    data = data.fillna(data.mean(numeric_only=True))
+    st.success("Imputed numeric missing values with column means.")
+
+    # Display cleaned data
+    st.write("Cleaned Data Preview:")
+    st.dataframe(data.head())
