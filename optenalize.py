@@ -1,6 +1,30 @@
 import streamlit as st
 import pandas as pd
 
+# Initialize session state for goal selection
+if "selected_goal" not in st.session_state:
+    st.session_state["selected_goal"] = None
+
+# Goal Selection
+st.title("Welcome to Optenalize")
+st.subheader("What would you like to do today?")
+selected_goal = st.selectbox(
+    "Select your goal:",
+    [
+        "Clean the dataset",
+        "Perform exploratory data analysis (EDA)",
+        "Train a predictive model",
+        "Perform general ML tasks",
+        "Other (specify custom goal)"
+    ]
+)
+
+# Store the selected goal in session state
+st.session_state["selected_goal"] = selected_goal
+
+# Display the selected goal
+st.write(f"You selected: {st.session_state['selected_goal']}")
+
 st.title("Optenalize: Data Cleaning and Forecasting")
 st.write("Welcome to the Optenalize platform! Upload your dataset to get started.")
 
