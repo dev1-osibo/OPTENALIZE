@@ -36,28 +36,68 @@ st.session_state["selected_goal"] = selected_goal
 # Display the selected goal
 st.write(f"You selected: {st.session_state['selected_goal']}")
 
-# File upload widget
-uploaded_file = st.file_uploader("Upload your dataset (CSV or Excel)", type=["csv", "xlsx"])
+# File Upload Section
+st.subheader("Step 1: Upload Your Dataset")
+
+uploaded_file = st.file_uploader(
+    "Upload your file (CSV, Excel, or JSON):", 
+    type=["csv", "xlsx", "json"]
+)
 
 if uploaded_file:
-    # Show file name
-    st.write(f"Uploaded file: {uploaded_file.name}")
+    # Load dataset into session state
+    if "dataset" not in st.session_state:
+        st.session_state["dataset"] = None
 
-    try:
+    # Read dataset based on file type
+    file_type = uploaded_file.name.split(".")[-1].lower()
+    if file_type == "csv":
+        st.session_state["dataset"] = pd.read_csv(uploaded_file)
+    elif file_type in ["xls", "xlsx"]:
+        st.session_state["dataset"] = pd.read_excel(uploaded_file)
+    elif file_type == "json":
+        st.session_state["dataset"] = pd.read_json(uploaded_file)
+    
+    # Display uploaded dataset preview
+    st.write("Preview of the uploaded dataset:")
+    st.dataframe(st.session_state["dataset"].head())
+
+    # Show instructions to proceed based on selected goal
+    if st.session_state["selected_goal"] == "Clean the dataset":
+        st.success("Your dataset is ready for cleaning. Proceed to the next step.")
+    elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+        st.success("Your dataset is ready for EDA. Proceed to the next step.")
+    elif st.session_state["selected_goal"] == "Train a predictive model":
+        st.success("Your dataset is ready for modeling. Proceed to the next step.")
+    elif st.session_state["selected_goal"] == "Perform general ML tasks":
+        st.success("Your dataset is ready for machine learning. Proceed to the next step.")
+    elif st.session_state["selected_goal"] == "Other (specify custom goal)":
+        st.success("Your dataset is uploaded. Specify your custom goal.")
+else:
+    st.info("Please upload a dataset to proceed.")
+
+#File upload widget
+#uploaded_file = st.file_uploader("Upload your dataset (CSV or #Excel)", type=["csv", "xlsx"])
+
+#if uploaded_file:
+    # Show file name
+    #st.write(f"Uploaded file: {uploaded_file.name}")
+
+    #try:
         # Handle CSV and Excel files
-        if uploaded_file.name.endswith('.csv'):
-            data = pd.read_csv(uploaded_file)
-        elif uploaded_file.name.endswith('.xlsx'):
-            data = pd.read_excel(uploaded_file)
+        #if uploaded_file.name.endswith('.csv'):
+            #data = pd.read_csv(uploaded_file)
+        #elif uploaded_file.name.endswith('.xlsx'):
+            #data = pd.read_excel(uploaded_file)
 
         # Display the data
-        st.write("Here's a preview of your data:")
-        st.dataframe(data.head())
+        #st.write("Here's a preview of your data:")
+        #st.dataframe(data.head())
 
-    except Exception as e:
-        st.error(f"Error loading file: {e}")
+    #except Exception as e:
+        #st.error(f"Error loading file: {e}")
 
-# Advanced Missing Value Handling
+#Advanced Missing Value Handling
 if uploaded_file:
     st.write("Data Cleaning Options:")
 
