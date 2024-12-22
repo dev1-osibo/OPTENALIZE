@@ -36,8 +36,6 @@ st.session_state["selected_goal"] = selected_goal
 # Display the selected goal
 st.write(f"You selected: {st.session_state['selected_goal']}")
 
-st.write("Welcome to the Optenalize platform! Upload your dataset to get started.")
-
 # File upload widget
 uploaded_file = st.file_uploader("Upload your dataset (CSV or Excel)", type=["csv", "xlsx"])
 
