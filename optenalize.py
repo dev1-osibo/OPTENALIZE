@@ -1,6 +1,85 @@
 import streamlit as st
 import pandas as pd
 
+# Define data cleaning workflow
+def data_cleaning_workflow():
+    """Implements the data cleaning workflow."""
+    st.header("Data Cleaning")
+
+    # Load dataset from session state
+    if "dataset" not in st.session_state or st.session_state["dataset"] is None:
+        st.warning("Please upload a dataset to start cleaning.")
+        return
+    
+    dataset = st.session_state["dataset"]
+
+    # Missing Value Summary
+    st.subheader("Missing Values Summary")
+    missing_summary = dataset.isnull().sum().sort_values(ascending=False)
+    missing_percentage = (missing_summary / len(dataset)) * 100
+    st.write(pd.DataFrame({"Missing Values": missing_summary, "Percentage": missing_percentage}))
+
+    # Handle Missing Values
+    st.subheader("Advanced Missing Value Handling")
+
+    # Select Essential Columns
+    essential_columns = st.multiselect(
+        "Select essential columns (rows with missing values here will be deleted):",
+        options=dataset.columns,
+        default=[],
+        help="Choose columns that are critical for your analysis."
+    )
+
+    # Drop Columns with High Missing Values
+    missing_threshold = st.slider(
+        "Drop columns with more than this % missing values:", 0, 100, 50, 5
+    )
+
+    if st.button("Apply Missing Value Threshold"):
+        cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index
+        cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
+
+        if cols_to_warn:
+            st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
+            cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
+
+        dataset = dataset.drop(columns=cols_to_drop)
+        st.session_state["dataset"] = dataset  # Update in session state
+        st.success(f"Dropped columns: {list(cols_to_drop)}")
+
+    # Handle Rows with Missing Values
+    if essential_columns:
+        dataset = dataset.dropna(subset=essential_columns)
+        st.session_state["dataset"] = dataset  # Update in session state
+        st.success("Dropped rows with missing values in essential columns.")
+
+    # Impute Remaining Missing Values
+    dataset = dataset.fillna(dataset.mean(numeric_only=True))
+    st.session_state["dataset"] = dataset  # Update in session state
+    st.success("Imputed numeric missing values with column means.")
+
+    # Handle Duplicates
+    st.subheader("Handle Duplicates")
+    if st.button("Remove Duplicates"):
+        before = len(dataset)
+        dataset = dataset.drop_duplicates()
+        st.session_state["dataset"] = dataset
+        after = len(dataset)
+        st.success(f"Removed {before - after} duplicate rows.")
+
+    # Standardize Column Names
+    st.subheader("Standardize Column Names")
+    if st.button("Standardize Columns"):
+        dataset.columns = dataset.columns.str.strip().str.lower().str.replace(" ", "_").str.replace("[^a-zA-Z0-9_]", "")
+        st.session_state["dataset"] = dataset
+        st.success("Column names standardized.")
+
+    # Preview Cleaned Dataset
+    st.subheader("Preview Cleaned Dataset")
+    if st.checkbox("Show Cleaned Dataset"):
+        st.dataframe(dataset.head())
+
+
 # Centralized App Heading
 st.markdown(
     """
@@ -12,8 +91,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
-# Initialize session state for goal selection
+# Initialize session state
 if "selected_goal" not in st.session_state:
     st.session_state["selected_goal"] = None
 
@@ -29,27 +107,13 @@ selected_goal = st.selectbox(
         "Other (specify custom goal)"
     ]
 )
-
-# Store the selected goal in session state
 st.session_state["selected_goal"] = selected_goal
-
-# Display the selected goal
-st.write(f"You selected: {st.session_state['selected_goal']}")
 
 # File Upload Section
 st.subheader("Step 1: Upload Your Dataset")
-
-uploaded_file = st.file_uploader(
-    "Upload your file (CSV, Excel, or JSON):", 
-    type=["csv", "xlsx", "json"]
-)
+uploaded_file = st.file_uploader("Upload your file (CSV, Excel, or JSON):", type=["csv", "xlsx", "json"])
 
 if uploaded_file:
-    # Load dataset into session state
-    if "dataset" not in st.session_state:
-        st.session_state["dataset"] = None
-
-    # Read dataset based on file type
     file_type = uploaded_file.name.split(".")[-1].lower()
     if file_type == "csv":
         st.session_state["dataset"] = pd.read_csv(uploaded_file)
@@ -57,97 +121,18 @@ if uploaded_file:
         st.session_state["dataset"] = pd.read_excel(uploaded_file)
     elif file_type == "json":
         st.session_state["dataset"] = pd.read_json(uploaded_file)
-    
-    # Display uploaded dataset preview
-    #st.write("Preview of the uploaded dataset:")
-    #st.dataframe(st.session_state["dataset"].head())
-    
-    # Optional data preview
+
     if st.checkbox("Preview the dataset"):
-        st.write("Preview of the uploaded dataset:")
         st.dataframe(st.session_state["dataset"].head())
-    
-    # Show instructions to proceed based on selected goal
-    if st.session_state["selected_goal"] == "Clean the dataset":
-        st.success("Your dataset is ready for cleaning. Proceed to the next step.")
-    elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
-        st.success("Your dataset is ready for EDA. Proceed to the next step.")
-    elif st.session_state["selected_goal"] == "Train a predictive model":
-        st.success("Your dataset is ready for modeling. Proceed to the next step.")
-    elif st.session_state["selected_goal"] == "Perform general ML tasks":
-        st.success("Your dataset is ready for machine learning. Proceed to the next step.")
-    elif st.session_state["selected_goal"] == "Other (specify custom goal)":
-        st.success("Your dataset is uploaded. Specify your custom goal.")
-else:
-    st.info("Please upload a dataset to proceed.")
 
-#File upload widget
-#uploaded_file = st.file_uploader("Upload your dataset (CSV or #Excel)", type=["csv", "xlsx"])
-
-#if uploaded_file:
-    # Show file name
-    #st.write(f"Uploaded file: {uploaded_file.name}")
-
-    #try:
-        # Handle CSV and Excel files
-        #if uploaded_file.name.endswith('.csv'):
-            #data = pd.read_csv(uploaded_file)
-        #elif uploaded_file.name.endswith('.xlsx'):
-            #data = pd.read_excel(uploaded_file)
-
-        # Display the data
-        #st.write("Here's a preview of your data:")
-        #st.dataframe(data.head())
-
-    #except Exception as e:
-        #st.error(f"Error loading file: {e}")
-
-#Advanced Missing Value Handling
-if uploaded_file:
-    st.write("Data Cleaning Options:")
-
-    # Select Essential Columns
-    essential_columns = st.multiselect(
-        "Select essential columns (rows with missing values here will be deleted):", 
-        options=data.columns, 
-        default=[],
-        help="Choose columns that are critical for your analysis."
-    )
-
-    # Display missing value statistics
-    st.write("Missing Values Summary:")
-    missing_summary = data.isnull().sum() / len(data) * 100
-    st.dataframe(missing_summary.rename("Missing (%)"))
-
-    # Automatically handle missing values
-    st.write("Automatically handling missing values:")
-    missing_threshold = st.slider(
-        "Drop columns with more than this % missing values", 0, 100, 50, 
-        help="Columns exceeding this threshold will be dropped unless they are essential."
-    )
-
-    # Identify columns to drop
-    cols_to_drop = missing_summary[missing_summary > missing_threshold].index
-    cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
-
-    # Warn if essential columns exceed threshold
-    if cols_to_warn:
-        st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
-        cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
-
-    # Drop non-essential columns exceeding threshold
-    data = data.drop(columns=cols_to_drop)
-    st.success(f"Dropped columns: {list(cols_to_drop)}")
-
-    # Handle rows with missing values in selected columns
-    if essential_columns:
-        data = data.dropna(subset=essential_columns)
-        st.success("Dropped rows with missing values in essential columns.")
-
-    # Impute remaining missing values
-    data = data.fillna(data.mean(numeric_only=True))
-    st.success("Imputed numeric missing values with column means.")
-
-    # Display cleaned data
-    st.write("Cleaned Data Preview:")
-    st.dataframe(data.head())
+# Branch into workflows
+if st.session_state["selected_goal"] == "Clean the dataset":
+    data_cleaning_workflow()
+elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+    st.info("EDA workflow will be implemented next.")
+elif st.session_state["selected_goal"] == "Train a predictive model":
+    st.info("Predictive modeling workflow will be implemented next.")
+elif st.session_state["selected_goal"] == "Perform general ML tasks":
+    st.info("General ML workflow will be implemented next.")
+elif st.session_state["selected_goal"] == "Other (specify custom goal)":
+    st.info("Custom workflow will be implemented next.")
