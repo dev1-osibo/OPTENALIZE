@@ -1,12 +1,23 @@
 import streamlit as st
 import pandas as pd
 
+# Centralized App Heading
+st.markdown(
+    """
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h1>Welcome to Optenalize</h1>
+        <h3>Your One-Stop Tool for Data Cleaning, Forecasting, and Machine Learning Insights</h3>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 # Initialize session state for goal selection
 if "selected_goal" not in st.session_state:
     st.session_state["selected_goal"] = None
 
 # Goal Selection
-st.title("Welcome to Optenalize")
 st.subheader("What would you like to do today?")
 selected_goal = st.selectbox(
     "Select your goal:",
@@ -25,7 +36,6 @@ st.session_state["selected_goal"] = selected_goal
 # Display the selected goal
 st.write(f"You selected: {st.session_state['selected_goal']}")
 
-st.title("Optenalize: Data Cleaning and Forecasting")
 st.write("Welcome to the Optenalize platform! Upload your dataset to get started.")
 
 # File upload widget
