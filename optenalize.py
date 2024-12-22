@@ -59,9 +59,14 @@ if uploaded_file:
         st.session_state["dataset"] = pd.read_json(uploaded_file)
     
     # Display uploaded dataset preview
-    st.write("Preview of the uploaded dataset:")
-    st.dataframe(st.session_state["dataset"].head())
-
+    #st.write("Preview of the uploaded dataset:")
+    #st.dataframe(st.session_state["dataset"].head())
+    
+    # Optional data preview
+    if st.checkbox("Preview the dataset"):
+        st.write("Preview of the uploaded dataset:")
+        st.dataframe(st.session_state["dataset"].head())
+    
     # Show instructions to proceed based on selected goal
     if st.session_state["selected_goal"] == "Clean the dataset":
         st.success("Your dataset is ready for cleaning. Proceed to the next step.")
