@@ -35,29 +35,46 @@ def data_cleaning_workflow():
         "Drop columns with more than this % missing values:", 0, 100, 50, 5
     )
 
+      
     if st.button("Apply Missing Value Threshold"):
-        cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index
-        cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
+    cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index
+    cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
 
-        if cols_to_warn:
-            st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
-            cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
+    if cols_to_warn:
+        st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
+        cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
 
-        dataset = dataset.drop(columns=cols_to_drop)
-        st.session_state["dataset"] = dataset  # Update in session state
-        st.success(f"Dropped columns: {list(cols_to_drop)}")
+    dataset = dataset.drop(columns=cols_to_drop)
+    st.session_state["dataset"] = dataset  # Update in session state
 
+    # Feedback
+    if len(cols_to_drop) > 0:
+        st.success(f"{len(cols_to_drop)} columns were dropped based on the threshold.")
+        if st.checkbox("Show list of dropped columns"):
+            st.write(list(cols_to_drop))
+    else:
+        st.info("No columns were dropped based on the threshold.")
+
+ 
     # Handle Rows with Missing Values
     if essential_columns:
         dataset = dataset.dropna(subset=essential_columns)
         st.session_state["dataset"] = dataset  # Update in session state
         st.success("Dropped rows with missing values in essential columns.")
-
+    
+       
     # Impute Remaining Missing Values
-    dataset = dataset.fillna(dataset.mean(numeric_only=True))
-    st.session_state["dataset"] = dataset  # Update in session state
-    st.success("Imputed numeric missing values with column means.")
+numeric_cols_with_na = dataset.select_dtypes(include=["number"]).isnull().sum()
+numeric_cols_to_impute = numeric_cols_with_na[numeric_cols_with_na > 0].index
 
+if len(numeric_cols_to_impute) > 0:
+    dataset[numeric_cols_to_impute] = dataset[numeric_cols_to_impute].fillna(dataset[numeric_cols_to_impute].mean())
+    st.session_state["dataset"] = dataset  # Update in session state
+    st.success(f"Imputed missing values in {len(numeric_cols_to_impute)} numeric columns with column means.")
+else:
+    st.info("No numeric columns required imputation.")
+    
+    
     # Handle Duplicates
     st.subheader("Handle Duplicates")
     if st.button("Remove Duplicates"):
@@ -79,6 +96,17 @@ def data_cleaning_workflow():
     if st.checkbox("Show Cleaned Dataset"):
         st.dataframe(dataset.head())
 
+
+# Download the Cleaned Dataset
+st.subheader("Download Cleaned Dataset")
+if st.button("Download as CSV"):
+    cleaned_data_csv = st.session_state["dataset"].to_csv(index=False)
+    st.download_button(
+        label="Download Cleaned Dataset",
+        data=cleaned_data_csv,
+        file_name="cleaned_dataset.csv",
+        mime="text/csv",
+    )
 
 # Centralized App Heading
 st.markdown(
