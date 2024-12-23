@@ -82,6 +82,36 @@ def data_cleaning_workflow():
         else:
             st.info("No columns were dropped based on the threshold.")
 
+# Drop Columns with High Missing Values
+st.subheader("Drop Columns with High Missing Values")
+missing_threshold = st.number_input(
+    "Set a percentage threshold for dropping columns with missing values:",
+    min_value=0,
+    max_value=100,
+    value=50,
+    step=5,
+    help="Columns with missing values above this percentage will be dropped."
+)
+
+if st.button("Apply Missing Value Threshold"):
+    cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index
+    cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
+
+    if cols_to_warn:
+        st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
+        cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
+
+    dataset = dataset.drop(columns=cols_to_drop)
+    st.session_state["dataset"] = dataset  # Update in session state
+
+    # Feedback
+    if len(cols_to_drop) > 0:
+        st.success(f"{len(cols_to_drop)} columns were dropped based on the threshold.")
+        with st.expander("View list of dropped columns"):
+            st.write(list(cols_to_drop))
+    else:
+        st.info("No columns were dropped based on the threshold.")
+
     # Impute Remaining Missing Values
     numeric_cols_with_na = dataset.select_dtypes(include=["number"]).isnull().sum()
     numeric_cols_to_impute = numeric_cols_with_na[numeric_cols_with_na > 0].index
@@ -92,6 +122,37 @@ def data_cleaning_workflow():
         st.success(f"Imputed missing values in {len(numeric_cols_to_impute)} numeric columns with column means.")
     else:
         st.info("No numeric columns required imputation.")
+
+
+# Impute Remaining Missing Values
+st.subheader("Impute Missing Values in Numeric Columns")
+imputation_strategy = st.radio(
+    "Choose an imputation strategy:",
+    options=["Column mean", "Random values within column range"],
+    help="Select how missing values should be handled for numeric columns."
+)
+
+if st.button("Apply Imputation Strategy"):
+    numeric_cols_with_na = dataset.select_dtypes(include=["number"]).isnull().sum()
+    numeric_cols_to_impute = numeric_cols_with_na[numeric_cols_with_na > 0].index
+
+    if len(numeric_cols_to_impute) > 0:
+        if imputation_strategy == "Column mean":
+            dataset[numeric_cols_to_impute] = dataset[numeric_cols_to_impute].fillna(dataset[numeric_cols_to_impute].mean())
+            st.success(f"Imputed missing values in {len(numeric_cols_to_impute)} numeric columns with column means.")
+        elif imputation_strategy == "Random values within column range":
+            for col in numeric_cols_to_impute:
+                col_min, col_max = dataset[col].min(), dataset[col].max()
+                dataset[col] = dataset[col].apply(
+                    lambda x: pd.Series([x]).dropna().sample(1).values[0]
+                    if pd.isnull(x) else x
+                )
+            st.success(f"Imputed missing values in {len(numeric_cols_to_impute)} numeric columns with random values.")
+        
+        st.session_state["dataset"] = dataset  # Update in session state
+    else:
+        st.info("No numeric columns required imputation.")
+
     
     # Handle Duplicates
     st.subheader("Handle Duplicates")
