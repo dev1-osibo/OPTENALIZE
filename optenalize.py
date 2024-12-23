@@ -1,162 +1,243 @@
-import streamlit as st
-import pandas as pd
-
-# Define data cleaning workflow
-def data_cleaning_workflow():
-    """Implements the data cleaning workflow."""
-    st.header("Data Cleaning")
-
-    # Load dataset from session state
-    if "dataset" not in st.session_state or st.session_state["dataset"] is None:
-        st.warning("Please upload a dataset to start cleaning.")
-        return
-    
-    dataset = st.session_state["dataset"]
-
-    # Missing Value Summary
-    st.subheader("Missing Values Summary")
-    missing_summary = dataset.isnull().sum().sort_values(ascending=False)
-    missing_percentage = (missing_summary / len(dataset)) * 100
-    st.write(pd.DataFrame({"Missing Values": missing_summary, "Percentage": missing_percentage}))
-
-    # Handle Missing Values
-    st.subheader("Advanced Missing Value Handling")
-
-    # Select Essential Columns
-    essential_columns = st.multiselect(
-        "Select essential columns (rows with missing values here will be deleted):",
-        options=dataset.columns,
-        default=[],
-        help="Choose columns that are critical for your analysis."
-    )
-
-    # Drop Columns with High Missing Values
-    missing_threshold = st.slider(
-        "Drop columns with more than this % missing values:", 0, 100, 50, 5
-    )
-
-    if st.button("Apply Missing Value Threshold"):
-        cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index
-        cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
-
-        if cols_to_warn:
-            st.warning(f"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}")
-            cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
-
-        dataset = dataset.drop(columns=cols_to_drop)
-        st.session_state["dataset"] = dataset  # Update in session state
-
-        # Feedback
-        if len(cols_to_drop) > 0:
-            st.success(f"{len(cols_to_drop)} columns were dropped based on the threshold.")
-            if st.checkbox("Show list of dropped columns"):
-                st.write(list(cols_to_drop))
-        else:
-            st.info("No columns were dropped based on the threshold.")
-
-    # Handle Rows with Missing Values
-    if essential_columns:
-        dataset = dataset.dropna(subset=essential_columns)
-        st.session_state["dataset"] = dataset  # Update in session state
-        st.success("Dropped rows with missing values in essential columns.")
-    
-    # Impute Remaining Missing Values
-    numeric_cols_with_na = dataset.select_dtypes(include=["number"]).isnull().sum()
-    numeric_cols_to_impute = numeric_cols_with_na[numeric_cols_with_na > 0].index
-
-    if len(numeric_cols_to_impute) > 0:
-        dataset[numeric_cols_to_impute] = dataset[numeric_cols_to_impute].fillna(dataset[numeric_cols_to_impute].mean())
-        st.session_state["dataset"] = dataset  # Update in session state
-        st.success(f"Imputed missing values in {len(numeric_cols_to_impute)} numeric columns with column means.")
-    else:
-        st.info("No numeric columns required imputation.")
-    
-    # Handle Duplicates
-    st.subheader("Handle Duplicates")
-    if st.button("Remove Duplicates"):
-        before = len(dataset)
-        dataset = dataset.drop_duplicates()
-        st.session_state["dataset"] = dataset
-        after = len(dataset)
-        st.success(f"Removed {before - after} duplicate rows.")
-
-    # Standardize Column Names
-    st.subheader("Standardize Column Names")
-    if st.button("Standardize Columns"):
-        dataset.columns = dataset.columns.str.strip().str.lower().str.replace(" ", "_").str.replace("[^a-zA-Z0-9_]", "")
-        st.session_state["dataset"] = dataset
-        st.success("Column names standardized.")
-
-    # Preview Cleaned Dataset
-    st.subheader("Preview Cleaned Dataset")
-    if st.checkbox("Show Cleaned Dataset"):
-        st.dataframe(dataset.head())
-
-
-# Download the Cleaned Dataset
-st.subheader("Download Cleaned Dataset")
-if st.button("Download as CSV"):
-    cleaned_data_csv = st.session_state["dataset"].to_csv(index=False)
-    st.download_button(
-        label="Download Cleaned Dataset",
-        data=cleaned_data_csv,
-        file_name="cleaned_dataset.csv",
-        mime="text/csv",
-    )
-
-# Centralized App Heading
-st.markdown(
-    """
-    <div style="text-align: center; margin-bottom: 20px;">
-        <h1>Welcome to Optenalize</h1>
-        <h3>Your One-Stop Tool for Data Cleaning, Forecasting, and Machine Learning Insights</h3>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# Initialize session state
-if "selected_goal" not in st.session_state:
-    st.session_state["selected_goal"] = None
-
-# Goal Selection
-st.subheader("What would you like to do today?")
-selected_goal = st.selectbox(
-    "Select your goal:",
-    [
-        "Clean the dataset",
-        "Perform exploratory data analysis (EDA)",
-        "Train a predictive model",
-        "Perform general ML tasks",
-        "Other (specify custom goal)"
-    ]
-)
-st.session_state["selected_goal"] = selected_goal
-
-# File Upload Section
-st.subheader("Step 1: Upload Your Dataset")
-uploaded_file = st.file_uploader("Upload your file (CSV, Excel, or JSON):", type=["csv", "xlsx", "json"])
-
-if uploaded_file:
-    file_type = uploaded_file.name.split(".")[-1].lower()
-    if file_type == "csv":
-        st.session_state["dataset"] = pd.read_csv(uploaded_file)
-    elif file_type in ["xls", "xlsx"]:
-        st.session_state["dataset"] = pd.read_excel(uploaded_file)
-    elif file_type == "json":
-        st.session_state["dataset"] = pd.read_json(uploaded_file)
-
-    if st.checkbox("Preview the dataset"):
-        st.dataframe(st.session_state["dataset"].head())
-
-# Branch into workflows
-if st.session_state["selected_goal"] == "Clean the dataset":
-    data_cleaning_workflow()
-elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
-    st.info("EDA workflow will be implemented next.")
-elif st.session_state["selected_goal"] == "Train a predictive model":
-    st.info("Predictive modeling workflow will be implemented next.")
-elif st.session_state["selected_goal"] == "Perform general ML tasks":
-    st.info("General ML workflow will be implemented next.")
-elif st.session_state["selected_goal"] == "Other (specify custom goal)":
-    st.info("Custom workflow will be implemented next.")
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "4794ddb0-a892-47ac-a093-9efbbe9e0891",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "C:\\Users\\babas\\OneDrive\\Documents\\OPTENALIZE\n"
+     ]
+    }
+   ],
+   "source": [
+    "%cd \"C:\\Users\\babas\\OneDrive\\Documents\\OPTENALIZE\""
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7dfc1779-ee23-4cf8-9a1d-8409bb38ffbd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import streamlit as st\n",
+    "import pandas as pd\n",
+    "\n",
+    "# Define data cleaning workflow\n",
+    "def data_cleaning_workflow():\n",
+    "    \"\"\"Implements the data cleaning workflow.\"\"\"\n",
+    "    st.header(\"Data Cleaning\")\n",
+    "\n",
+    "    # Load dataset from session state\n",
+    "    if \"dataset\" not in st.session_state or st.session_state[\"dataset\"] is None:\n",
+    "        st.warning(\"Please upload a dataset to start cleaning.\")\n",
+    "        return\n",
+    "    \n",
+    "    dataset = st.session_state[\"dataset\"]\n",
+    "\n",
+    "    # Missing Value Summary\n",
+    "    st.subheader(\"Missing Values Summary\")\n",
+    "    missing_summary = dataset.isnull().sum().sort_values(ascending=False)\n",
+    "    missing_percentage = (missing_summary / len(dataset)) * 100\n",
+    "    st.write(pd.DataFrame({\"Missing Values\": missing_summary, \"Percentage\": missing_percentage}))\n",
+    "\n",
+    "    # Handle Missing Values\n",
+    "    st.subheader(\"Advanced Missing Value Handling\")\n",
+    "\n",
+    "    # Handle Rows with Missing Values in Essential Columns\n",
+    "st.subheader(\"Handle Missing Values in Essential Columns\")\n",
+    "essential_columns = st.multiselect(\n",
+    "    \"Select essential columns:\",\n",
+    "    options=dataset.columns,\n",
+    "    default=[],\n",
+    "    help=\"Choose columns that are critical for your analysis.\"\n",
+    ")\n",
+    "\n",
+    "if essential_columns:\n",
+    "    st.write(\"How would you like to handle rows with missing values in these columns?\")\n",
+    "    missing_value_action = st.radio(\n",
+    "        \"Choose an action:\",\n",
+    "        options=[\"Impute with column mean\", \"Impute with random values\", \"Delete rows\"],\n",
+    "    )\n",
+    "\n",
+    "    if st.button(\"Apply Action\"):\n",
+    "        if missing_value_action == \"Impute with column mean\":\n",
+    "            dataset[essential_columns] = dataset[essential_columns].fillna(dataset[essential_columns].mean())\n",
+    "            st.success(\"Missing values in essential columns were imputed with column means.\")\n",
+    "        elif missing_value_action == \"Impute with random values\":\n",
+    "            for col in essential_columns:\n",
+    "                dataset[col] = dataset[col].fillna(\n",
+    "                    dataset[col].apply(lambda x: pd.Series([x]).dropna().sample(1).values[0] if not pd.isnull(x) else x)\n",
+    "                )\n",
+    "            st.success(\"Missing values in essential columns were imputed with random values.\")\n",
+    "        elif missing_value_action == \"Delete rows\":\n",
+    "            dataset = dataset.dropna(subset=essential_columns)\n",
+    "            st.success(\"Rows with missing values in essential columns were deleted.\")\n",
+    "\n",
+    "        st.session_state[\"dataset\"] = dataset  # Update dataset in session state\n",
+    "\n",
+    "   \n",
+    "    # Drop Columns Based on Missing Value Threshold\n",
+    "st.subheader(\"Drop Columns with High Missing Values\")\n",
+    "missing_threshold = st.radio(\n",
+    "    \"Select a threshold for dropping columns:\",\n",
+    "    options=[10, 25, 50, 75, 100],\n",
+    "    index=2,  # Default to 50%\n",
+    "    format_func=lambda x: f\"More than {x}% missing values\"\n",
+    ")\n",
+    "\n",
+    "if st.button(\"Apply Missing Value Threshold\"):\n",
+    "    cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index\n",
+    "    cols_to_warn = [col for col in essential_columns if col in cols_to_drop]\n",
+    "\n",
+    "    if cols_to_warn:\n",
+    "        st.warning(f\"The following essential columns exceed the threshold and will NOT be dropped: {cols_to_warn}\")\n",
+    "        cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]\n",
+    "\n",
+    "    dataset = dataset.drop(columns=cols_to_drop)\n",
+    "    st.session_state[\"dataset\"] = dataset  # Update dataset in session state\n",
+    "\n",
+    "    # Feedback\n",
+    "    if len(cols_to_drop) > 0:\n",
+    "        st.success(f\"{len(cols_to_drop)} columns were dropped based on the threshold.\")\n",
+    "        if st.checkbox(\"Show list of dropped columns\"):\n",
+    "            st.write(list(cols_to_drop))\n",
+    "    else:\n",
+    "        st.info(\"No columns were dropped based on the threshold.\")\n",
+    "\n",
+    "    # Handle Rows with Missing Values\n",
+    "    if essential_columns:\n",
+    "        dataset = dataset.dropna(subset=essential_columns)\n",
+    "        st.session_state[\"dataset\"] = dataset  # Update in session state\n",
+    "        st.success(\"Dropped rows with missing values in essential columns.\")\n",
+    "    \n",
+    "    # Impute Remaining Missing Values\n",
+    "    numeric_cols_with_na = dataset.select_dtypes(include=[\"number\"]).isnull().sum()\n",
+    "    numeric_cols_to_impute = numeric_cols_with_na[numeric_cols_with_na > 0].index\n",
+    "\n",
+    "    if len(numeric_cols_to_impute) > 0:\n",
+    "        dataset[numeric_cols_to_impute] = dataset[numeric_cols_to_impute].fillna(dataset[numeric_cols_to_impute].mean())\n",
+    "        st.session_state[\"dataset\"] = dataset  # Update in session state\n",
+    "        st.success(f\"Imputed missing values in {len(numeric_cols_to_impute)} numeric columns with column means.\")\n",
+    "    else:\n",
+    "        st.info(\"No numeric columns required imputation.\")\n",
+    "    \n",
+    "    # Handle Duplicates\n",
+    "    st.subheader(\"Handle Duplicates\")\n",
+    "    if st.button(\"Remove Duplicates\"):\n",
+    "        before = len(dataset)\n",
+    "        dataset = dataset.drop_duplicates()\n",
+    "        st.session_state[\"dataset\"] = dataset\n",
+    "        after = len(dataset)\n",
+    "        st.success(f\"Removed {before - after} duplicate rows.\")\n",
+    "\n",
+    "    # Standardize Column Names\n",
+    "    st.subheader(\"Standardize Column Names\")\n",
+    "    if st.button(\"Standardize Columns\"):\n",
+    "        dataset.columns = dataset.columns.str.strip().str.lower().str.replace(\" \", \"_\").str.replace(\"[^a-zA-Z0-9_]\", \"\")\n",
+    "        st.session_state[\"dataset\"] = dataset\n",
+    "        st.success(\"Column names standardized.\")\n",
+    "\n",
+    "    # Preview Cleaned Dataset\n",
+    "    st.subheader(\"Preview Cleaned Dataset\")\n",
+    "    if st.checkbox(\"Show Cleaned Dataset\"):\n",
+    "        st.dataframe(dataset.head())\n",
+    "\n",
+    "\n",
+    "# Download the Cleaned Dataset\n",
+    "st.subheader(\"Download Cleaned Dataset\")\n",
+    "if st.button(\"Download as CSV\"):\n",
+    "    cleaned_data_csv = st.session_state[\"dataset\"].to_csv(index=False)\n",
+    "    st.download_button(\n",
+    "        label=\"Download Cleaned Dataset\",\n",
+    "        data=cleaned_data_csv,\n",
+    "        file_name=\"cleaned_dataset.csv\",\n",
+    "        mime=\"text/csv\",\n",
+    "    )\n",
+    "\n",
+    "# Centralized App Heading\n",
+    "st.markdown(\n",
+    "    \"\"\"\n",
+    "    <div style=\"text-align: center; margin-bottom: 20px;\">\n",
+    "        <h1>Welcome to Optenalize</h1>\n",
+    "        <h3>Your One-Stop Tool for Data Cleaning, Forecasting, and Machine Learning Insights</h3>\n",
+    "    </div>\n",
+    "    \"\"\",\n",
+    "    unsafe_allow_html=True,\n",
+    ")\n",
+    "\n",
+    "# Initialize session state\n",
+    "if \"selected_goal\" not in st.session_state:\n",
+    "    st.session_state[\"selected_goal\"] = None\n",
+    "\n",
+    "# Goal Selection\n",
+    "st.subheader(\"What would you like to do today?\")\n",
+    "selected_goal = st.selectbox(\n",
+    "    \"Select your goal:\",\n",
+    "    [\n",
+    "        \"Clean the dataset\",\n",
+    "        \"Perform exploratory data analysis (EDA)\",\n",
+    "        \"Train a predictive model\",\n",
+    "        \"Perform general ML tasks\",\n",
+    "        \"Other (specify custom goal)\"\n",
+    "    ]\n",
+    ")\n",
+    "st.session_state[\"selected_goal\"] = selected_goal\n",
+    "\n",
+    "# File Upload Section\n",
+    "st.subheader(\"Step 1: Upload Your Dataset\")\n",
+    "uploaded_file = st.file_uploader(\"Upload your file (CSV, Excel, or JSON):\", type=[\"csv\", \"xlsx\", \"json\"])\n",
+    "\n",
+    "if uploaded_file:\n",
+    "    file_type = uploaded_file.name.split(\".\")[-1].lower()\n",
+    "    if file_type == \"csv\":\n",
+    "        st.session_state[\"dataset\"] = pd.read_csv(uploaded_file)\n",
+    "    elif file_type in [\"xls\", \"xlsx\"]:\n",
+    "        st.session_state[\"dataset\"] = pd.read_excel(uploaded_file)\n",
+    "    elif file_type == \"json\":\n",
+    "        st.session_state[\"dataset\"] = pd.read_json(uploaded_file)\n",
+    "\n",
+    "    if st.checkbox(\"Preview the dataset\"):\n",
+    "        st.dataframe(st.session_state[\"dataset\"].head())\n",
+    "\n",
+    "# Branch into workflows\n",
+    "if st.session_state[\"selected_goal\"] == \"Clean the dataset\":\n",
+    "    data_cleaning_workflow()\n",
+    "elif st.session_state[\"selected_goal\"] == \"Perform exploratory data analysis (EDA)\":\n",
+    "    st.info(\"EDA workflow will be implemented next.\")\n",
+    "elif st.session_state[\"selected_goal\"] == \"Train a predictive model\":\n",
+    "    st.info(\"Predictive modeling workflow will be implemented next.\")\n",
+    "elif st.session_state[\"selected_goal\"] == \"Perform general ML tasks\":\n",
+    "    st.info(\"General ML workflow will be implemented next.\")\n",
+    "elif st.session_state[\"selected_goal\"] == \"Other (specify custom goal)\":\n",
+    "    st.info(\"Custom workflow will be implemented next.\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.7"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
