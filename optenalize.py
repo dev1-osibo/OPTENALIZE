@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 
+st.title("Optenalize")
+st.write("Welcome to the Optenalize App!")
+
+
 # Define data cleaning workflow
 def data_cleaning_workflow():
     """Implements the data cleaning workflow."""
