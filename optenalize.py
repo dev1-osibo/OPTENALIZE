@@ -53,7 +53,6 @@ def dataset_precheck():
     else:
         st.success("No issues detected in the dataset. Ready to proceed.")
 
-# EDA Workflow
 def eda_workflow():
     """Perform Exploratory Data Analysis."""
     st.header("Exploratory Data Analysis (EDA)")
@@ -103,23 +102,23 @@ def eda_workflow():
                     use_container_width=True
                 )
 
-# Correlation Matrix
-st.subheader("Correlation Matrix")
-if st.checkbox("Show Correlation Matrix"):
-    try:
-        corr_matrix = dataset.corr(numeric_only=True)
-        if corr_matrix.empty:
-            st.warning("Correlation matrix is empty. Please check your data.")
-        else:
-            st.dataframe(corr_matrix)
-            st.write("Heatmap:")
-            # Replace NaN values with zeros to avoid plotting errors
-            corr_matrix = corr_matrix.fillna(0)
-            fig, ax = plt.subplots(figsize=(10, 8))
-            sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", ax=ax)
-            st.pyplot(fig)
-    except Exception as e:
-        st.error(f"An error occurred while generating the heatmap: {e}")
+    # Correlation Matrix
+    st.subheader("Correlation Matrix")
+    if st.checkbox("Show Correlation Matrix"):
+        try:
+            corr_matrix = dataset.corr(numeric_only=True)
+            if corr_matrix.empty:
+                st.warning("Correlation matrix is empty. Please check your data.")
+            else:
+                st.dataframe(corr_matrix)
+                st.write("Heatmap:")
+                # Replace NaN values with zeros to avoid plotting errors
+                corr_matrix = corr_matrix.fillna(0)
+                fig, ax = plt.subplots(figsize=(10, 8))
+                sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", ax=ax)
+                st.pyplot(fig)
+        except Exception as e:
+            st.error(f"An error occurred while generating the heatmap: {e}")
 
 # Data Cleaning Workflow
 def data_cleaning_workflow():
