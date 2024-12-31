@@ -1,58 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-# Dataset Pre-check Functionality
-def dataset_precheck():
-    """
-    Performs a quick scan of the uploaded dataset for common issues
-    and provides user choices for resolution.
-    """
-    st.subheader("Dataset Pre-check")
-    
-    dataset = st.session_state["dataset"]
-    issues_detected = False
-
-    # Check for missing values
-    missing_summary = dataset.isnull().sum()
-    total_missing = missing_summary.sum()
-    if total_missing > 0:
-        issues_detected = True
-        st.warning(f"Your dataset contains {total_missing} missing values.")
-    
-    # Check for duplicate rows
-    duplicate_count = dataset.duplicated().sum()
-    if duplicate_count > 0:
-        issues_detected = True
-        st.warning(f"Your dataset contains {duplicate_count} duplicate rows.")
-
-    # Check for non-standard column names
-    non_standard_cols = [
-        col for col in dataset.columns if not col.isidentifier()
-    ]
-    if non_standard_cols:
-        issues_detected = True
-        st.warning(f"The following column names are non-standard: {non_standard_cols}")
-
-    # Redirect Options
-    if issues_detected:
-        st.error("Issues detected in the dataset. Proceed with caution.")
-        action = st.radio(
-            "How would you like to proceed?",
-            options=[
-                "Clean the dataset now",
-                "Proceed with warnings",
-            ],
-            index=0,
-        )
-        if action == "Clean the dataset now":
-            st.session_state["redirect_to_cleaning"] = True
-        elif action == "Proceed with warnings":
-            st.session_state["proceed_with_warnings"] = True
-    else:
-        st.success("No issues detected in the dataset. Ready to proceed.")
-
-
-# Data Cleaning Workflow
 def data_cleaning_workflow():
     st.header("Data Cleaning")
 
@@ -170,7 +118,6 @@ def data_cleaning_workflow():
         mime="text/csv",
     )
 
-# Main App Heading
 st.markdown(
     """
     <div style="text-align: center; margin-bottom: 20px;">
@@ -211,15 +158,6 @@ if uploaded_file:
 
     if st.checkbox("Preview the dataset"):
         st.dataframe(st.session_state["dataset"].head())
-
-    # Dataset Precheck
-    dataset_precheck()
-
-    # Redirect or Proceed
-    if st.session_state.get("redirect_to_cleaning"):
-        data_cleaning_workflow()
-    elif st.session_state.get("proceed_with_warnings"):
-        st.warning("Proceeding with an unclean dataset. Results may be inaccurate.")
 
 if st.session_state["selected_goal"] == "Clean the dataset":
     data_cleaning_workflow()
