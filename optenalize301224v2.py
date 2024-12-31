@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import altair as alt
 
 # Dataset Pre-check Functionality
 def dataset_precheck():
@@ -54,7 +53,7 @@ def dataset_precheck():
     else:
         st.success("No issues detected in the dataset. Ready to proceed.")
 
-# EDA Workflow
+# Adjustments to EDA Workflow
 def eda_workflow():
     """Perform Exploratory Data Analysis."""
     st.header("Exploratory Data Analysis (EDA)")
@@ -111,15 +110,61 @@ def eda_workflow():
         sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", ax=ax)
         st.pyplot(fig)
 
-# Data Cleaning Workflow
-def data_cleaning_workflow():
-    st.header("Data Cleaning")
-
-    if "dataset" not in st.session_state or st.session_state["dataset"] is None:
-        st.warning("Please upload a dataset to start cleaning.")
-        return
-
+# Adjustments to Dataset Precheck
+def dataset_precheck():
+    """
+    Performs a quick scan of the uploaded dataset for common issues
+    and provides user choices for resolution.
+    """
+    st.subheader("Dataset Pre-check")
+    
     dataset = st.session_state["dataset"]
+    issues_detected = False
+
+    # Check for missing values
+    missing_summary = dataset.isnull().sum()
+    total_missing = missing_summary.sum()
+    if total_missing > 0:
+        issues_detected = True
+        st.warning(f"Your dataset contains {total_missing} missing values.")
+    
+    # Check for duplicate rows
+    duplicate_count = dataset.duplicated().sum()
+    if duplicate_count > 0:
+        issues_detected = True
+        st.warning(f"Your dataset contains {duplicate_count} duplicate rows.")
+
+    # Check for non-standard column names
+    non_standard_cols = [
+        col for col in dataset.columns if not col.isidentifier()
+    ]
+    if non_standard_cols:
+        issues_detected = True
+        st.warning(f"The following column names are non-standard: {non_standard_cols}")
+
+    # Redirect Options
+    if issues_detected:
+        st.error("Issues detected in the dataset. Proceed with caution.")
+        action = st.radio(
+            "How would you like to proceed?",
+            options=[
+                "Clean the dataset now",
+                "Proceed with warnings",
+            ],
+            index=0,
+        )
+        if action == "Clean the dataset now":
+            st.session_state["redirect_to_cleaning"] = True
+        elif action == "Proceed with warnings":
+            st.session_state["proceed_with_warnings"] = True
+    else:
+        st.success("No issues detected in the dataset. Ready to proceed.")
+
+# Insert EDA Workflow Call in Main
+if st.session_state.get("proceed_with_warnings"):
+    eda_workflow()
+elif st.session_state.get("redirect_to_cleaning"):
+    data_cleaning_workflow()
 
     # Handle Missing Value Placeholders
     st.subheader("Handle Missing Value Placeholders")
