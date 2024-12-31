@@ -103,7 +103,7 @@ def eda_workflow():
                     use_container_width=True
                 )
 
-    # Correlation Matrix
+# Correlation Matrix
 st.subheader("Correlation Matrix")
 if st.checkbox("Show Correlation Matrix"):
     try:
