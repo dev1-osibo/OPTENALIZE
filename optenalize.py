@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Dataset Pre-check Functionality
 def dataset_precheck():
@@ -51,6 +53,46 @@ def dataset_precheck():
     else:
         st.success("No issues detected in the dataset. Ready to proceed.")
 
+# Exploratory Data Analysis Workflow
+def eda_workflow():
+    """
+    Implements the Exploratory Data Analysis (EDA) workflow.
+    """
+    st.header("Exploratory Data Analysis (EDA)")
+    dataset = st.session_state["dataset"]
+
+    # Summary Statistics
+    st.subheader("Summary Statistics")
+    st.write(dataset.describe())
+
+    # Data Visualization Options
+    st.subheader("Generate Visualizations")
+    visualization_type = st.selectbox(
+        "Select Visualization Type",
+        ["Histogram", "Scatter Plot", "Correlation Matrix"]
+    )
+
+    if visualization_type == "Histogram":
+        column = st.selectbox("Select Column", dataset.select_dtypes(include=['float', 'int']).columns)
+        if st.button("Generate Histogram"):
+            fig, ax = plt.subplots()
+            sns.histplot(dataset[column], kde=True, ax=ax)
+            st.pyplot(fig)
+
+    elif visualization_type == "Scatter Plot":
+        col1, col2 = st.columns(2)
+        x_col = col1.selectbox("Select X-Axis Column", dataset.columns)
+        y_col = col2.selectbox("Select Y-Axis Column", dataset.columns)
+        if st.button("Generate Scatter Plot"):
+            fig, ax = plt.subplots()
+            sns.scatterplot(data=dataset, x=x_col, y=y_col, ax=ax)
+            st.pyplot(fig)
+
+    elif visualization_type == "Correlation Matrix":
+        if st.button("Generate Correlation Matrix"):
+            fig, ax = plt.subplots()
+            sns.heatmap(dataset.corr(), annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
+            st.pyplot(fig)
 
 # Data Cleaning Workflow
 def data_cleaning_workflow():
@@ -75,74 +117,6 @@ def data_cleaning_workflow():
         st.session_state["dataset"] = dataset
         st.success(f"Replaced placeholders {placeholder_list} with NaN.")
 
-    # Missing Value Summary
-    st.subheader("Missing Values Summary")
-    with st.expander("View Missing Values Summary"):
-        missing_summary = dataset.isnull().sum().sort_values(ascending=False)
-        missing_percentage = (missing_summary / len(dataset)) * 100
-        st.write(pd.DataFrame({"Missing Values": missing_summary, "Percentage": missing_percentage}))
-
-    st.subheader("Advanced Missing Value Handling")
-    essential_columns = st.multiselect(
-        "Select essential columns:", options=dataset.columns, help="Columns critical for analysis."
-    )
-
-    if essential_columns:
-        st.write("How would you like to handle rows with missing values in essential columns?")
-        col1, col2 = st.columns(2)
-        with col1:
-            missing_value_action = st.radio(
-                "Action:",
-                options=["Impute with column mean", "Impute with random values", "Delete rows"]
-            )
-
-        if st.button("Apply Missing Values Action"):
-            if missing_value_action == "Impute with column mean":
-                dataset[essential_columns] = dataset[essential_columns].fillna(dataset[essential_columns].mean())
-                st.success("Imputed missing values with column means.")
-            elif missing_value_action == "Impute with random values":
-                for col in essential_columns:
-                    col_min, col_max = dataset[col].min(), dataset[col].max()
-                    dataset[col] = dataset[col].apply(
-                        lambda x: pd.Series([col_min, col_max]).sample(1).values[0] if pd.isnull(x) else x
-                    )
-                st.success("Imputed missing values with random values.")
-            elif missing_value_action == "Delete rows":
-                dataset = dataset.dropna(subset=essential_columns)
-                st.success("Dropped rows with missing values.")
-
-            st.session_state["dataset"] = dataset
-
-    st.subheader("Drop Columns with High Missing Values")
-    col3, col4 = st.columns(2)
-    with col3:
-        missing_threshold = st.number_input(
-            "Set missing values threshold (%):",
-            min_value=0,
-            max_value=100,
-            value=50,
-            step=5,
-            help="Drop columns exceeding this threshold."
-        )
-
-    if st.button("Apply Missing Value Threshold"):
-        cols_to_drop = missing_percentage[missing_percentage > missing_threshold].index
-        cols_to_warn = [col for col in essential_columns if col in cols_to_drop]
-
-        if cols_to_warn:
-            st.warning(f"Essential columns not dropped: {cols_to_warn}")
-            cols_to_drop = [col for col in cols_to_drop if col not in essential_columns]
-
-        dataset = dataset.drop(columns=cols_to_drop)
-        st.session_state["dataset"] = dataset
-
-        if len(cols_to_drop) > 0:
-            with st.expander("View dropped columns"):
-                st.write(list(cols_to_drop))
-            st.success(f"Dropped {len(cols_to_drop)} columns.")
-        else:
-            st.info("No columns were dropped.")
-
     st.subheader("Handle Duplicates")
     if st.button("Remove Duplicates"):
         before = len(dataset)
@@ -150,12 +124,6 @@ def data_cleaning_workflow():
         st.session_state["dataset"] = dataset
         after = len(dataset)
         st.success(f"Removed {before - after} duplicate rows.")
-
-    st.subheader("Standardize Column Names")
-    if st.button("Standardize Columns"):
-        dataset.columns = dataset.columns.str.strip().str.lower().str.replace(" ", "_").str.replace("[^a-zA-Z0-9_]", "")
-        st.session_state["dataset"] = dataset
-        st.success("Standardized column names.")
 
     st.subheader("Preview Cleaned Dataset")
     if st.checkbox("Show Cleaned Dataset"):
@@ -219,12 +187,12 @@ if uploaded_file:
     if st.session_state.get("redirect_to_cleaning"):
         data_cleaning_workflow()
     elif st.session_state.get("proceed_with_warnings"):
-        st.warning("Proceeding with an unclean dataset. Results may be inaccurate.")
+        eda_workflow()
 
 if st.session_state["selected_goal"] == "Clean the dataset":
     data_cleaning_workflow()
 elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
-    st.info("EDA workflow will be implemented next.")
+    eda_workflow()
 elif st.session_state["selected_goal"] == "Train a predictive model":
     st.info("Predictive modeling workflow will be implemented next.")
 elif st.session_state["selected_goal"] == "Perform general ML tasks":
