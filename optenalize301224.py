@@ -10,20 +10,6 @@ def data_cleaning_workflow():
 
     dataset = st.session_state["dataset"]
 
-    # Handle Missing Value Placeholders
-    st.subheader("Handle Missing Value Placeholders")
-    placeholders = st.text_input(
-        "Enter placeholder values to treat as missing (comma-separated):",
-        value="None,null,NA",
-        help="Provide a list of placeholders (e.g., None, null, NA) to convert to missing values (NaN)."
-    )
-    if st.button("Apply Placeholder Replacement"):
-        placeholder_list = [x.strip() for x in placeholders.split(",")]
-        dataset.replace(placeholder_list, pd.NA, inplace=True)
-        st.session_state["dataset"] = dataset
-        st.success(f"Replaced placeholders {placeholder_list} with NaN.")
-
-    # Missing Value Summary
     st.subheader("Missing Values Summary")
     with st.expander("View Missing Values Summary"):
         missing_summary = dataset.isnull().sum().sort_values(ascending=False)
@@ -32,8 +18,7 @@ def data_cleaning_workflow():
 
     st.subheader("Advanced Missing Value Handling")
     essential_columns = st.multiselect(
-        "Select essential columns:", options=dataset.columns, help="Columns critical for analysis."
-    )
+        "Select essential columns:", options=dataset.columns, help="Columns critical for analysis.")
 
     if essential_columns:
         st.write("How would you like to handle rows with missing values in essential columns?")
