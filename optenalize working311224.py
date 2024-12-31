@@ -36,7 +36,7 @@ def dataset_precheck():
         st.warning(f"The following column names are non-standard: {non_standard_cols}")
 
     # Redirect Options
-    if issues_detected and st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+    if issues_detected:
         st.error("Issues detected in the dataset. Proceed with caution.")
         action = st.radio(
             "How would you like to proceed?",
@@ -50,12 +50,9 @@ def dataset_precheck():
             st.session_state["redirect_to_cleaning"] = True
         elif action == "Proceed with warnings":
             st.session_state["proceed_with_warnings"] = True
-    elif issues_detected:
-        st.error("Issues detected in the dataset. Please resolve them before proceeding.")
     else:
         st.success("No issues detected in the dataset. Ready to proceed.")
 
-# EDA Workflow
 def eda_workflow():
     """Perform Exploratory Data Analysis."""
     st.header("Exploratory Data Analysis (EDA)")
@@ -117,8 +114,9 @@ def eda_workflow():
                 st.write("Heatmap:")
                 # Replace NaN values with zeros to avoid plotting errors
                 corr_matrix = corr_matrix.fillna(0)
-                fig = sns.heatmap(corr_matrix, annot=True, cmap="coolwarm")
-                st.pyplot(fig.figure)
+                fig, ax = plt.subplots(figsize=(10, 8))
+                sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", ax=ax)
+                st.pyplot(fig)
         except Exception as e:
             st.error(f"An error occurred while generating the heatmap: {e}")
 
@@ -137,10 +135,9 @@ def data_cleaning_workflow():
     placeholders = st.text_input(
         "Enter placeholder values to treat as missing (comma-separated):",
         value="None,null,NA",
-        key="missing_placeholder_key",
         help="Provide a list of placeholders (e.g., None, null, NA) to convert to missing values (NaN)."
     )
-    if st.button("Apply Placeholder Replacement", key="apply_placeholder_key"):
+    if st.button("Apply Placeholder Replacement"):
         placeholder_list = [x.strip() for x in placeholders.split(",")]
         dataset.replace(placeholder_list, pd.NA, inplace=True)
         st.session_state["dataset"] = dataset
