@@ -53,46 +53,52 @@ def dataset_precheck():
     else:
         st.success("No issues detected in the dataset. Ready to proceed.")
 
-# Exploratory Data Analysis Workflow
 def eda_workflow():
-    """
-    Implements the Exploratory Data Analysis (EDA) workflow.
-    """
-    st.header("Exploratory Data Analysis (EDA)")
+    """Perform Exploratory Data Analysis."""
+    st.header("Exploratory Data Analysis")
+
+    # Ensure a dataset is loaded
+    if "dataset" not in st.session_state or st.session_state["dataset"] is None:
+        st.warning("Please upload and clean the dataset before proceeding with EDA.")
+        return
+
     dataset = st.session_state["dataset"]
 
-    # Summary Statistics
+    # Summary statistics
     st.subheader("Summary Statistics")
-    st.write(dataset.describe())
+    st.dataframe(dataset.describe(include="all").transpose())
 
-    # Data Visualization Options
-    st.subheader("Generate Visualizations")
-    visualization_type = st.selectbox(
-        "Select Visualization Type",
-        ["Histogram", "Scatter Plot", "Correlation Matrix"]
-    )
+    # Visualizations
+    st.subheader("Data Visualizations")
+    col1, col2 = st.columns(2)
 
-    if visualization_type == "Histogram":
-        column = st.selectbox("Select Column", dataset.select_dtypes(include=['float', 'int']).columns)
+    with col1:
+        column_to_plot = st.selectbox(
+            "Select column for Histogram:",
+            options=dataset.columns,
+            help="Choose a column to plot its histogram."
+        )
         if st.button("Generate Histogram"):
-            fig, ax = plt.subplots()
-            sns.histplot(dataset[column], kde=True, ax=ax)
-            st.pyplot(fig)
+            st.bar_chart(dataset[column_to_plot].dropna())
 
-    elif visualization_type == "Scatter Plot":
-        col1, col2 = st.columns(2)
-        x_col = col1.selectbox("Select X-Axis Column", dataset.columns)
-        y_col = col2.selectbox("Select Y-Axis Column", dataset.columns)
+    with col2:
+        x_axis = st.selectbox("Select X-axis for Scatter Plot:", options=dataset.columns)
+        y_axis = st.selectbox("Select Y-axis for Scatter Plot:", options=dataset.columns)
         if st.button("Generate Scatter Plot"):
-            fig, ax = plt.subplots()
-            sns.scatterplot(data=dataset, x=x_col, y=y_col, ax=ax)
-            st.pyplot(fig)
+            st.altair_chart(
+                alt.Chart(dataset).mark_circle().encode(
+                    x=x_axis, y=y_axis
+                ).interactive(),
+                use_container_width=True
+            )
 
-    elif visualization_type == "Correlation Matrix":
-        if st.button("Generate Correlation Matrix"):
-            fig, ax = plt.subplots()
-            sns.heatmap(dataset.corr(), annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
-            st.pyplot(fig)
+    # Correlation Matrix
+    st.subheader("Correlation Matrix")
+    if st.checkbox("Show Correlation Matrix"):
+        corr_matrix = dataset.corr(numeric_only=True)
+        st.dataframe(corr_matrix)
+        st.write("Heatmap:")
+        st.write(sns.heatmap(corr_matrix, annot=True, cmap="coolwarm"))
 
 # Data Cleaning Workflow
 def data_cleaning_workflow():
