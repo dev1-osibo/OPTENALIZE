@@ -35,13 +35,23 @@ def dataset_precheck():
         issues_detected = True
         st.warning(f"The following column names are non-standard: {non_standard_cols}")
 
-    # Check for potential year/date columns
+    # Check for 4-digit columns with commas
+    ambiguous_columns = []
     for col in dataset.columns:
-        if "year" in col.lower() or "date" in col.lower() or "decade" in col.lower():
-            if dataset[col].dtype == object and dataset[col].str.contains(",").any():
-                st.warning(f"Column '{col}' contains commas. Please confirm if it is a date/year column or formatted numbers.")
-            elif dataset[col].astype(str).str.match(r'\d{4}').all():
-                st.info(f"Column '{col}' appears to contain 4-digit year values. Please confirm if it represents a year.")
+        if dataset[col].dtype == 'object':
+            if dataset[col].str.contains(r'\d{4},').any():
+                ambiguous_columns.append(col)
+
+    if ambiguous_columns:
+        st.warning(f"The following columns have 4 digits with commas: {ambiguous_columns}")
+        for col in ambiguous_columns:
+            user_input = st.radio(
+                f"Is the column '{col}' a date/year column?",
+                options=["Yes", "No"],
+                key=f"confirm_{col}"
+            )
+            if user_input == "Yes":
+                st.info(f"Column '{col}' will be treated as a date/year.")
 
     # Redirect Options
     if issues_detected and st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
@@ -57,15 +67,6 @@ def eda_workflow():
     """Perform Exploratory Data Analysis."""
     st.header("Exploratory Data Analysis (EDA)")
 
-    # Persistent Warning Banner
-    if st.session_state.get("proceed_with_warnings"):
-        st.warning(
-            "You are proceeding with warnings. Results may be inaccurate due to unresolved dataset issues."
-        )
-        if st.button("Return to Data Cleaning"):
-            st.session_state["redirect_to_cleaning"] = True
-            st.experimental_rerun()
-
     # Ensure a dataset is loaded
     if "dataset" not in st.session_state or st.session_state["dataset"] is None:
         st.warning("Please upload and clean the dataset before proceeding with EDA.")
@@ -73,11 +74,11 @@ def eda_workflow():
 
     dataset = st.session_state["dataset"]
 
-    # Summary statistics
-    st.subheader("Summary Statistics")
-    st.dataframe(dataset.describe(include="all").transpose())
+    # User-triggered EDA functionalities
+    if st.button("Show Summary Statistics"):
+        st.subheader("Summary Statistics")
+        st.dataframe(dataset.describe(include="all").transpose())
 
-    # Visualizations
     st.subheader("Data Visualizations")
     with st.container():
         col1, col2 = st.columns(2)
@@ -102,7 +103,6 @@ def eda_workflow():
                     use_container_width=True
                 )
 
-    # Correlation Matrix
     st.subheader("Correlation Matrix")
     if st.checkbox("Show Correlation Matrix"):
         try:
@@ -112,7 +112,6 @@ def eda_workflow():
             else:
                 st.dataframe(corr_matrix)
                 st.write("Heatmap:")
-                # Replace NaN values with zeros to avoid plotting errors
                 corr_matrix = corr_matrix.fillna(0)
                 fig = sns.heatmap(corr_matrix, annot=True, cmap="coolwarm")
                 st.pyplot(fig.figure)
@@ -129,15 +128,14 @@ def data_cleaning_workflow():
 
     dataset = st.session_state["dataset"]
 
-    # Handle Missing Value Placeholders
     st.subheader("Handle Missing Value Placeholders")
     placeholders = st.text_input(
         "Enter placeholder values to treat as missing (comma-separated):",
         value="None,null,NA",
-        key="missing_placeholder_key",
+        key="missing_placeholder_key_cleaning",
         help="Provide a list of placeholders (e.g., None, null, NA) to convert to missing values (NaN)."
     )
-    if st.button("Apply Placeholder Replacement", key="apply_placeholder_key"):
+    if st.button("Apply Placeholder Replacement", key="apply_placeholder_key_cleaning"):
         placeholder_list = [x.strip() for x in placeholders.split(",")]
         dataset.replace(placeholder_list, pd.NA, inplace=True)
         st.session_state["dataset"] = dataset
