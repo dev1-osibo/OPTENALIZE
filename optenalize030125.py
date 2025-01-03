@@ -35,18 +35,21 @@ def dataset_precheck():
         issues_detected = True
         st.warning(f"The following column names are non-standard: {non_standard_cols}")
 
-    # Check for potential year/date columns
-    for col in dataset.columns:
-        if "year" in col.lower() or "date" in col.lower() or "decade" in col.lower():
-            if dataset[col].dtype == object and dataset[col].str.contains(",").any():
-                st.warning(f"Column '{col}' contains commas. Please confirm if it is a date/year column or formatted numbers.")
-            elif dataset[col].astype(str).str.match(r'\d{4}').all():
-                st.info(f"Column '{col}' appears to contain 4-digit year values. Please confirm if it represents a year.")
-
     # Redirect Options
     if issues_detected and st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
         st.error("Issues detected in the dataset. Proceed with caution.")
-        st.session_state["redirect_to_cleaning"] = True
+        action = st.radio(
+            "How would you like to proceed?",
+            options=[
+                "Clean the dataset now",
+                "Proceed with warnings",
+            ],
+            index=0,
+        )
+        if action == "Clean the dataset now":
+            st.session_state["redirect_to_cleaning"] = True
+        elif action == "Proceed with warnings":
+            st.session_state["proceed_with_warnings"] = True
     elif issues_detected:
         st.error("Issues detected in the dataset. Please resolve them before proceeding.")
     else:
