@@ -35,14 +35,30 @@ def dataset_precheck():
         issues_detected = True
         st.warning(f"The following column names are non-standard: {non_standard_cols}")
 
-    # Redirect Options Based on Goal
-    if issues_detected:
-        if st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
-            st.error("Issues detected in the dataset. EDA requires a clean dataset.")
-            st.info("Please return to the goal selection and choose 'Clean the dataset' to resolve these issues.")
-            st.session_state["redirect_to_cleaning"] = True
-        else:
-            st.error("Issues detected in the dataset. Please resolve them before proceeding.")
+    # Check for 4-digit columns with commas
+    ambiguous_columns = []
+    for col in dataset.columns:
+        if dataset[col].dtype == 'object':
+            if dataset[col].str.contains(r'\d{4},').any():
+                ambiguous_columns.append(col)
+
+    if ambiguous_columns:
+        st.warning(f"The following columns have 4 digits with commas: {ambiguous_columns}")
+        for col in ambiguous_columns:
+            user_input = st.radio(
+                f"Is the column '{col}' a date/year column?",
+                options=["Yes", "No"],
+                key=f"confirm_{col}"
+            )
+            if user_input == "Yes":
+                st.info(f"Column '{col}' will be treated as a date/year.")
+
+    # Redirect Options
+    if issues_detected and st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+        st.error("Issues detected in the dataset. Proceed with caution.")
+        st.session_state["redirect_to_cleaning"] = True
+    elif issues_detected:
+        st.error("Issues detected in the dataset. Please resolve them before proceeding.")
     else:
         st.success("No issues detected in the dataset. Ready to proceed.")
 
@@ -58,9 +74,7 @@ def eda_workflow():
 
     dataset = st.session_state["dataset"]
 
-    # Trigger EDA functionalities only if dataset is clean
-    st.info("Your dataset is clean. You can now perform EDA.")
-
+    # User-triggered EDA functionalities
     if st.button("Show Summary Statistics"):
         st.subheader("Summary Statistics")
         st.dataframe(dataset.describe(include="all").transpose())
@@ -127,52 +141,17 @@ def data_cleaning_workflow():
         st.session_state["dataset"] = dataset
         st.success(f"Replaced placeholders {placeholder_list} with NaN.")
 
-        # Ask user what to do with NaN values
-        st.subheader("Handle Missing Values")
-        for col in dataset.columns:
-            if dataset[col].isnull().any():
-                col_type = dataset[col].dtype
-                if pd.api.types.is_numeric_dtype(col_type):
-                    action = st.selectbox(
-                        f"How should missing values in '{col}' be handled?",
-                        ["Fill with Random Values", "Fill with Mean", "Leave as NaN"],
-                        key=f"missing_action_{col}"
-                    )
-                    if action == "Fill with Random Values":
-                        col_min, col_max = dataset[col].min(), dataset[col].max()
-                        dataset[col].fillna(pd.Series([col_min, col_max]).sample(1).values[0], inplace=True)
-                    elif action == "Fill with Mean":
-                        dataset[col].fillna(dataset[col].mean(), inplace=True)
-                else:
-                    action = st.selectbox(
-                        f"How should missing values in '{col}' (non-numerical) be handled?",
-                        ["Fill with 'Missing'", "Leave as NaN"],
-                        key=f"missing_action_{col}"
-                    )
-                    if action == "Fill with 'Missing'":
-                        dataset[col].fillna("Missing", inplace=True)
-
-        st.session_state["dataset"] = dataset
-
     st.subheader("Handle Duplicates")
-    columns_for_duplicates = st.multiselect(
-        "Select columns to check for duplicates (leave blank to check all):",
-        options=dataset.columns,
-        help="Choose specific columns to identify duplicate rows."
-    )
     if st.button("Remove Duplicates"):
         before = len(dataset)
-        if columns_for_duplicates:
-            dataset = dataset.drop_duplicates(subset=columns_for_duplicates)
-        else:
-            dataset = dataset.drop_duplicates()
+        dataset = dataset.drop_duplicates()
         st.session_state["dataset"] = dataset
         after = len(dataset)
         st.success(f"Removed {before - after} duplicate rows.")
 
     st.subheader("Preview Cleaned Dataset")
     if st.checkbox("Show Cleaned Dataset"):
-        st.dataframe(dataset.head(10))  # Limited to first 10 rows
+        st.dataframe(dataset.head())
 
     st.subheader("Download Cleaned Dataset")
     cleaned_data_csv = dataset.to_csv(index=False)
@@ -183,7 +162,33 @@ def data_cleaning_workflow():
         mime="text/csv",
     )
 
-# Main App Logic
+# Main App Heading
+st.markdown(
+    """
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h1>Welcome to Optenalize</h1>
+        <h3>Your One-Stop Tool for Data Cleaning, Forecasting, and Machine Learning Insights</h3>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if "selected_goal" not in st.session_state:
+    st.session_state["selected_goal"] = None
+
+st.subheader("What would you like to do today?")
+selected_goal = st.selectbox(
+    "Select your goal:",
+    [
+        "Clean the dataset",
+        "Perform exploratory data analysis (EDA)",
+        "Train a predictive model",
+        "Perform general ML tasks",
+        "Other (specify custom goal)"
+    ]
+)
+st.session_state["selected_goal"] = selected_goal
+
 st.subheader("Step 1: Upload Your Dataset")
 uploaded_file = st.file_uploader("Upload your file (CSV, Excel, or JSON):", type=["csv", "xlsx", "json"])
 
@@ -197,24 +202,24 @@ if uploaded_file:
         st.session_state["dataset"] = pd.read_json(uploaded_file)
 
     if st.checkbox("Preview the dataset"):
-        st.dataframe(st.session_state["dataset"].head(10))  # Limited to first 10 rows
+        st.dataframe(st.session_state["dataset"].head())
 
     # Dataset Precheck
     dataset_precheck()
 
-# Tabs for Workflow Navigation
-tab1, tab2 = st.tabs(["Clean Dataset", "EDA"])
-
-with tab1:
-    if "dataset" in st.session_state:
+    # Redirect or Proceed
+    if st.session_state.get("redirect_to_cleaning"):
         data_cleaning_workflow()
-    else:
-        st.warning("No dataset uploaded yet.")
-
-with tab2:
-    if "dataset" in st.session_state and not st.session_state.get("redirect_to_cleaning"):
+    elif st.session_state.get("proceed_with_warnings"):
         eda_workflow()
-    elif "dataset" in st.session_state:
-        st.warning("Please return to the 'Clean Dataset' tab to resolve issues.")
-    else:
-        st.warning("No dataset uploaded yet.")
+
+if st.session_state["selected_goal"] == "Clean the dataset":
+    data_cleaning_workflow()
+elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+    eda_workflow()
+elif st.session_state["selected_goal"] == "Train a predictive model":
+    st.info("Predictive modeling workflow will be implemented next.")
+elif st.session_state["selected_goal"] == "Perform general ML tasks":
+    st.info("General ML workflow will be implemented next.")
+elif st.session_state["selected_goal"] == "Other (specify custom goal)":
+    st.info("Custom workflow will be implemented next.")

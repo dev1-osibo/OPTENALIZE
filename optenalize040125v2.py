@@ -40,7 +40,6 @@ def dataset_precheck():
         if st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
             st.error("Issues detected in the dataset. EDA requires a clean dataset.")
             st.info("Please return to the goal selection and choose 'Clean the dataset' to resolve these issues.")
-            st.session_state["redirect_to_cleaning"] = True
         else:
             st.error("Issues detected in the dataset. Please resolve them before proceeding.")
     else:
@@ -127,52 +126,17 @@ def data_cleaning_workflow():
         st.session_state["dataset"] = dataset
         st.success(f"Replaced placeholders {placeholder_list} with NaN.")
 
-        # Ask user what to do with NaN values
-        st.subheader("Handle Missing Values")
-        for col in dataset.columns:
-            if dataset[col].isnull().any():
-                col_type = dataset[col].dtype
-                if pd.api.types.is_numeric_dtype(col_type):
-                    action = st.selectbox(
-                        f"How should missing values in '{col}' be handled?",
-                        ["Fill with Random Values", "Fill with Mean", "Leave as NaN"],
-                        key=f"missing_action_{col}"
-                    )
-                    if action == "Fill with Random Values":
-                        col_min, col_max = dataset[col].min(), dataset[col].max()
-                        dataset[col].fillna(pd.Series([col_min, col_max]).sample(1).values[0], inplace=True)
-                    elif action == "Fill with Mean":
-                        dataset[col].fillna(dataset[col].mean(), inplace=True)
-                else:
-                    action = st.selectbox(
-                        f"How should missing values in '{col}' (non-numerical) be handled?",
-                        ["Fill with 'Missing'", "Leave as NaN"],
-                        key=f"missing_action_{col}"
-                    )
-                    if action == "Fill with 'Missing'":
-                        dataset[col].fillna("Missing", inplace=True)
-
-        st.session_state["dataset"] = dataset
-
     st.subheader("Handle Duplicates")
-    columns_for_duplicates = st.multiselect(
-        "Select columns to check for duplicates (leave blank to check all):",
-        options=dataset.columns,
-        help="Choose specific columns to identify duplicate rows."
-    )
     if st.button("Remove Duplicates"):
         before = len(dataset)
-        if columns_for_duplicates:
-            dataset = dataset.drop_duplicates(subset=columns_for_duplicates)
-        else:
-            dataset = dataset.drop_duplicates()
+        dataset = dataset.drop_duplicates()
         st.session_state["dataset"] = dataset
         after = len(dataset)
         st.success(f"Removed {before - after} duplicate rows.")
 
     st.subheader("Preview Cleaned Dataset")
     if st.checkbox("Show Cleaned Dataset"):
-        st.dataframe(dataset.head(10))  # Limited to first 10 rows
+        st.dataframe(dataset.head())
 
     st.subheader("Download Cleaned Dataset")
     cleaned_data_csv = dataset.to_csv(index=False)
@@ -197,24 +161,15 @@ if uploaded_file:
         st.session_state["dataset"] = pd.read_json(uploaded_file)
 
     if st.checkbox("Preview the dataset"):
-        st.dataframe(st.session_state["dataset"].head(10))  # Limited to first 10 rows
+        st.dataframe(st.session_state["dataset"].head())
 
     # Dataset Precheck
     dataset_precheck()
 
-# Tabs for Workflow Navigation
-tab1, tab2 = st.tabs(["Clean Dataset", "EDA"])
-
-with tab1:
-    if "dataset" in st.session_state:
-        data_cleaning_workflow()
+if st.session_state["selected_goal"] == "Clean the dataset":
+    data_cleaning_workflow()
+elif st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+    if st.session_state.get("redirect_to_cleaning"):
+        st.warning("Please return to the goal selection and choose 'Clean the dataset' to resolve issues.")
     else:
-        st.warning("No dataset uploaded yet.")
-
-with tab2:
-    if "dataset" in st.session_state and not st.session_state.get("redirect_to_cleaning"):
         eda_workflow()
-    elif "dataset" in st.session_state:
-        st.warning("Please return to the 'Clean Dataset' tab to resolve issues.")
-    else:
-        st.warning("No dataset uploaded yet.")
