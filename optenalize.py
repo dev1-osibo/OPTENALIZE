@@ -127,26 +127,33 @@ def data_cleaning_workflow():
         st.session_state["dataset"] = dataset
         st.success(f"Replaced placeholders {placeholder_list} with NaN.")
 
-    st.subheader("Handle Missing Values")
-    if dataset.isnull().any().any():
-        handling_option = st.selectbox(
-            "Select how to handle missing values:",
-            ["Fill with Random Values", "Fill with Mean (numerical only)", "Leave as NaN"]
-        )
-        if st.button("Apply Missing Values Handling"):
-            for col in dataset.columns:
-                if dataset[col].isnull().any():
-                    col_type = dataset[col].dtype
-                    if pd.api.types.is_numeric_dtype(col_type):
-                        if handling_option == "Fill with Random Values":
-                            col_min, col_max = dataset[col].min(), dataset[col].max()
-                            dataset[col].fillna(pd.Series([col_min, col_max]).sample(1).values[0], inplace=True)
-                        elif handling_option == "Fill with Mean (numerical only)":
-                            dataset[col].fillna(dataset[col].mean(), inplace=True)
-                    elif handling_option == "Fill with Random Values":
+        # Ask user what to do with NaN values
+        st.subheader("Handle Missing Values")
+        for col in dataset.columns:
+            if dataset[col].isnull().any():
+                col_type = dataset[col].dtype
+                if pd.api.types.is_numeric_dtype(col_type):
+                    action = st.selectbox(
+                        f"How should missing values in '{col}' be handled?",
+                        ["Fill with Random Values", "Fill with Mean", "Leave as NaN"],
+                        key=f"missing_action_{col}"
+                    )
+                    if action == "Fill with Random Values":
+                        col_min, col_max = dataset[col].min(), dataset[col].max()
+                        dataset[col].fillna(pd.Series([col_min, col_max]).sample(1).values[0], inplace=True)
+                    elif action == "Fill with Mean":
+                        dataset[col].fillna(dataset[col].mean(), inplace=True)
+                else:
+                    action = st.selectbox(
+                        f"How should missing values in '{col}' (non-numerical) be handled?",
+                        ["Fill with 'Missing'", "Leave as NaN"],
+                        key=f"missing_action_{col}"
+                    )
+                    if action == "Fill with 'Missing'":
                         dataset[col].fillna("Missing", inplace=True)
 
-    st.session_state["dataset"] = dataset
+        st.session_state["dataset"] = dataset
+        st.success("Missing value handling applied successfully.")
 
     st.subheader("Handle Non-Numeric Values in Numeric Columns")
     for col in dataset.select_dtypes(include="number").columns:
@@ -165,6 +172,7 @@ def data_cleaning_workflow():
                     dataset[col] = pd.to_numeric(dataset[col], errors="coerce").fillna(0)
 
     st.session_state["dataset"] = dataset
+    st.success("Non-numeric value handling applied successfully.")
 
     st.subheader("Handle Duplicates")
     columns_for_duplicates = st.multiselect(
