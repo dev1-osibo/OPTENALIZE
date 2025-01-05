@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from dataset_precheck import dataset_precheck
+from dataset_precheck_workflow import dataset_precheck_workflow
 from data_cleaning_workflow import data_cleaning_workflow
 from eda_workflow import eda_workflow
 
