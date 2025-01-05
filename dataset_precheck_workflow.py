@@ -1,6 +1,6 @@
 import streamlit as st
 
-def dataset_precheck(dataset):
+def dataset_precheck_workflow(dataset):
     """
     Performs a quick scan of the uploaded dataset for common issues
     and provides user choices for resolution.

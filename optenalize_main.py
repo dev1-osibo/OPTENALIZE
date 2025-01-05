@@ -23,7 +23,7 @@ if uploaded_file:
     st.session_state["dataset"] = dataset
 
     # Dataset Precheck
-    issues_detected = dataset_precheck(dataset)
+    issues_detected = dataset_precheck_workflow(dataset)
 
     # Tabs for Workflow Navigation
     tab1, tab2 = st.tabs(["Clean Dataset", "EDA"])
