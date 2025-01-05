@@ -10,7 +10,7 @@ def dataset_precheck():
     and provides user choices for resolution.
     """
     st.subheader("Dataset Pre-check")
-    
+
     dataset = st.session_state["dataset"]
     issues_detected = False
 
@@ -20,7 +20,7 @@ def dataset_precheck():
     if total_missing > 0:
         issues_detected = True
         st.warning(f"Your dataset contains {total_missing} missing values.")
-    
+
     # Check for duplicate rows
     duplicate_count = dataset.duplicated().sum()
     if duplicate_count > 0:
@@ -37,7 +37,7 @@ def dataset_precheck():
 
     # Redirect Options Based on Goal
     if issues_detected:
-        if st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
+        if "selected_goal" in st.session_state and st.session_state["selected_goal"] == "Perform exploratory data analysis (EDA)":
             st.error("Issues detected in the dataset. EDA requires a clean dataset.")
             st.info("Please return to the goal selection and choose 'Clean the dataset' to resolve these issues.")
             st.session_state["redirect_to_cleaning"] = True
@@ -184,6 +184,9 @@ def data_cleaning_workflow():
     )
 
 # Main App Logic
+if "selected_goal" not in st.session_state:
+    st.session_state["selected_goal"] = None
+
 st.subheader("Step 1: Upload Your Dataset")
 uploaded_file = st.file_uploader("Upload your file (CSV, Excel, or JSON):", type=["csv", "xlsx", "json"])
 
