@@ -44,13 +44,13 @@ tab1, tab2 = st.tabs(["Clean Dataset", "EDA"])
 
 with tab1:
     if "dataset" in st.session_state:
-        data_cleaning_workflow()
+        data_cleaning_workflow(st.session_state["dataset"])
     else:
         st.warning("No dataset uploaded yet.")
 
 with tab2:
     if "dataset" in st.session_state and not st.session_state.get("redirect_to_cleaning"):
-        eda_workflow()
+        eda_workflow(st.session_state["dataset"])
     elif "dataset" in st.session_state:
         st.warning("Please return to the 'Clean Dataset' tab to resolve issues.")
     else:
