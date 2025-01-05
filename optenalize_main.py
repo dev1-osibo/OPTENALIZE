@@ -36,7 +36,7 @@ if uploaded_file:
         st.dataframe(st.session_state["dataset"].head(10))  # Preview limited to first 10 rows
 
     # Perform Dataset Pre-check
-    dataset_precheck_workflow()
+    dataset_precheck_workflow(st.session_state["dataset"])
 
 # Tabs for Navigation
 st.subheader("Navigate Through Workflows")
