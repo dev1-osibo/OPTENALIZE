@@ -1,1 +1,1 @@
-web: streamlit run optenalize.py --server.port=$PORT --server.enableCORS=false
+web: streamlit run optenalize_main.py --server.port=$PORT --server.enableCORS=false
