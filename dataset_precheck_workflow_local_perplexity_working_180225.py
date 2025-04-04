@@ -14,7 +14,7 @@ if "original_dataset" not in st.session_state:
 def run_precheck(dataset):
     """Comprehensive data quality assessment with statistical profiling"""
     st.subheader("Comprehensive Data Quality Assessment")
-
+    
     # Initialize analysis containers
     analysis_results = {
         "Basic Statistics": pd.DataFrame(),
@@ -47,10 +47,11 @@ def run_precheck(dataset):
     with st.expander("Basic Dataset Statistics"):
         st.write(dataset.describe(include='all'))
 
+    
     with st.expander("Data Quality Report"):
         for metric, value in quality_metrics.items():
             st.metric(label=metric, value=value)
-
+    
     with st.expander("Advanced Type Analysis"):
         st.json(analysis_results["Type Analysis"])
 
@@ -58,15 +59,14 @@ def run_precheck(dataset):
 def run_cleaning_workflow(dataset):
     """Interactive cleaning pipeline with audit tracking"""
     st.subheader("Smart Cleaning Workflow")
-
+    
     # Cleaning action registry
     cleaning_actions = {
         "Handle Missing Values": False,
         "Clean Whitespace": False,
         "Fix Data Types": False,
         "Standardize Dates": False,
-        "Remove Duplicates": False,
-        "Remove High-Missing Columns": False
+        "Remove Duplicates": False
     }
 
     # Dynamic UI layout
@@ -94,10 +94,6 @@ def run_cleaning_workflow(dataset):
     if cleaning_actions["Remove Duplicates"]:
         remove_duplicates(dataset)
 
-    # Remove High-Missing Columns
-    if cleaning_actions["Remove High-Missing Columns"]:
-        remove_high_missing_columns(dataset)
-
     # Version comparison tool
     with st.expander("Version Comparison"):
         if st.session_state["original_dataset"] is not None:
@@ -117,67 +113,88 @@ def run_cleaning_workflow(dataset):
 def handle_missing_values(dataset):
     """Sophisticated null value treatment with multiple strategies"""
     st.subheader("Missing Value Imputation")
-
+    
     strategy = st.radio("Select Imputation Method:", [
-        "Fill with Random Values",
-        "Fill with Mean/Average",
-        "Fill with 'Missing' for Non-Numeric Columns",
-        "Remove Rows with Missing Values"
-    ], horizontal=True)
+        "Advanced Random Imputation", 
+        "ML-Based Imputation",
+        "Forward/Backward Fill",
+        "Custom Value"
+    ])
 
-    if st.button("Execute Missing Value Handling"):
-        if strategy == "Fill with Random Values":
-            for col in dataset.columns:
-                if pd.api.types.is_numeric_dtype(dataset[col]):
-                    non_null = dataset[col].dropna()
-                    if len(non_null) > 0:
-                        dataset[col] = dataset[col].apply(
-                            lambda x: random.choice(non_null) if pd.isnull(x) else x
-                        )
-        elif strategy == "Fill with Mean/Average":
-            for col in dataset.columns:
-                if pd.api.types.is_numeric_dtype(dataset[col]):
-                    dataset[col].fillna(dataset[col].mean(), inplace=True)
-        elif strategy == "Fill with 'Missing' for Non-Numeric Columns":
-            for col in dataset.select_dtypes(exclude=["number"]).columns:
-                dataset[col].fillna("Missing", inplace=True)
-        elif strategy == "Remove Rows with Missing Values":
-            dataset.dropna(inplace=True)
+    if strategy == "Advanced Random Imputation":
+        for col in dataset.columns:
+            if pd.api.types.is_numeric_dtype(dataset[col]):
+                non_null = dataset[col].dropna()
+                if len(non_null) > 0:
+                    dataset[col] = dataset[col].apply(
+                        lambda x: random.choice(non_null) if pd.isnull(x) else x
+                    )
+        log_action("Advanced random imputation applied")
 
-        log_action(f"Applied Missing Value Handling: {strategy}")
+    elif strategy == "ML-Based Imputation":
+        try:
+            from sklearn.experimental import enable_iterative_imputer
+            from sklearn.impute import IterativeImputer
+            imputer = IterativeImputer()
+            numeric_cols = dataset.select_dtypes(include=np.number).columns
+            dataset[numeric_cols] = imputer.fit_transform(dataset[numeric_cols])
+            log_action("ML-based imputation performed")
+        except ImportError:
+            st.error("ML imputation requires scikit-learn")
+
+    elif strategy == "Forward/Backward Fill":
+        dataset.ffill(inplace=True)
+        dataset.bfill(inplace=True)
+        log_action("Forward/backward fill applied")
+
+    elif strategy == "Custom Value":
+        custom_values = {}
+        for col in dataset.columns:
+            custom = st.text_input(f"Custom value for {col}:")
+            if custom:
+                try:
+                    dataset[col].fillna(type(dataset[col].iloc[0])(custom), inplace=True)
+                except ValueError:
+                    dataset[col].fillna(custom, inplace=True)
+        log_action("Custom value imputation applied")
 
 # Enhanced date standardization
 def standardize_dates(dataset):
     """Flexible date parser with automatic format detection"""
     st.subheader("Date Standardization Engine")
-
-    date_cols = [col for col in dataset.columns if "date" in col.lower() or "year" in col.lower()]
+    
+    date_cols = [col for col in dataset.columns if "date" in col.lower()]
     if not date_cols:
         st.info("No date-related columns detected")
         return
 
     for col in date_cols:
         with st.expander(f"Processing: {col}"):
-            dataset[col] = pd.to_datetime(dataset[col], errors='coerce', infer_datetime_format=True)
-            dataset[col] = dataset[col].dt.strftime("%Y/%m/%d")
-
-# Remove columns with high missing values
-def remove_high_missing_columns(dataset):
-    """Identifies and removes columns with excessive missing values"""
-    threshold = 0.8
-    high_missing_cols = [col for col in dataset.columns if dataset[col].isnull().mean() > threshold]
-
-    if high_missing_cols:
-        dataset.drop(columns=high_missing_cols, inplace=True)
-        log_action(f"Removed high-missing columns: {', '.join(high_missing_cols)}")
-        st.success(f"Removed columns: {', '.join(high_missing_cols)}")
-    else:
-        st.info("No columns exceeded the missing value threshold.")
+            original_sample = dataset[col].head(5).tolist()
+            
+            # Try multiple parsing strategies
+            parsed = pd.to_datetime(dataset[col], errors='coerce', infer_datetime_format=True)
+            if parsed.isna().any():
+                parsed = pd.to_datetime(dataset[col], errors='coerce', dayfirst=True)
+            
+            success_rate = 1 - parsed.isna().mean()
+            if success_rate > 0.9:
+                dataset[col] = parsed
+                log_action(f"Standardized {col} with {success_rate*100:.1f}% success")
+            else:
+                st.warning(f"Low parsing success ({success_rate*100:.1f}%) for {col}")
+                custom_format = st.text_input(f"Enter custom format for {col}:")
+                if custom_format:
+                    try:
+                        dataset[col] = pd.to_datetime(dataset[col], format=custom_format, errors='coerce')
+                        log_action(f"Custom format {custom_format} applied to {col}")
+                    except ValueError:
+                        st.error("Invalid date format specification")
 
 # Main application workflow
 def main():
     st.title("Enterprise Data Health Center")
-
+    
     # File upload with format detection
     uploaded_file = st.file_uploader("Upload Dataset", type=["csv", "xlsx", "parquet"])
     if uploaded_file:
@@ -189,20 +206,30 @@ def main():
                 dataset = pd.read_excel(uploaded_file)
             elif file_type == "parquet":
                 dataset = pd.read_parquet(uploaded_file)
-
+            
             # Preserve original data
             if st.session_state["original_dataset"] is None:
                 st.session_state["original_dataset"] = dataset.copy()
-
+            
             # Interactive workflow
             run_precheck(dataset)
             run_cleaning_workflow(dataset)
-
+            
             # Export functionality
             st.subheader("Data Export")
-            dataset.to_csv("cleaned_data.csv", index=False)
-            st.download_button("Download Cleaned Dataset", "cleaned_data.csv")
-
+            export_format = st.selectbox("Export Format:", ["CSV", "Parquet", "Excel"])
+            buffer = BytesIO()
+            if export_format == "CSV":
+                dataset.to_csv(buffer, index=False)
+                st.download_button("Download CSV", buffer.getvalue(), "cleaned_data.csv")
+            elif export_format == "Parquet":
+                dataset.to_parquet(buffer)
+                st.download_button("Download Parquet", buffer.getvalue(), "cleaned_data.parquet")
+            elif export_format == "Excel":
+                with pd.ExcelWriter(buffer) as writer:
+                    dataset.to_excel(writer, index=False)
+                st.download_button("Download Excel", buffer.getvalue(), "cleaned_data.xlsx")
+        
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
 

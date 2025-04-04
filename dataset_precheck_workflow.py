@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
+import seaborn as sns
+import altair as alt
 
+# Dataset Pre-check Functionality
 def dataset_precheck_workflow(dataset):
     """
     Performs a quick scan of the uploaded dataset for common issues
@@ -12,12 +15,23 @@ def dataset_precheck_workflow(dataset):
 
     # Check for missing values
     missing_summary = dataset.isnull().sum()
-    total_missing = missing_summary.sum()
-    if total_missing > 0:
+    total_missing_cells = missing_summary.sum()
+    if total_missing_cells > 0:
         issues_detected = True
-        st.warning(f"Your dataset contains {total_missing} missing values.")
-        with st.expander("View Missing Value Details"):
-            st.dataframe(missing_summary.rename("Missing Values"))
+        st.warning(f"Your dataset contains {missing_summary[missing_summary > 0].count()} columns with {total_missing_cells} missing cells.")
+        if st.checkbox("Show missing values details"):
+            st.dataframe(missing_summary[missing_summary > 0])
+
+    # Check for mixed or inconsistent data types
+    inconsistent_columns = []
+    for col in dataset.columns:
+        if not pd.api.types.is_numeric_dtype(dataset[col]) and dataset[col].str.isnumeric().any():
+            inconsistent_columns.append(col)
+    if inconsistent_columns:
+        issues_detected = True
+        st.warning(f"{len(inconsistent_columns)} columns contain mixed or inconsistent types.")
+        if st.checkbox("Show inconsistent columns"):
+            st.write(inconsistent_columns)
 
     # Check for duplicate rows
     duplicate_count = dataset.duplicated().sum()
@@ -25,27 +39,6 @@ def dataset_precheck_workflow(dataset):
         issues_detected = True
         st.warning(f"Your dataset contains {duplicate_count} duplicate rows.")
 
-    # Check for non-standard column names
-    non_standard_cols = [
-        col for col in dataset.columns if not col.isidentifier()
-    ]
-    if non_standard_cols:
-        issues_detected = True
-        st.warning(f"The following column names are non-standard: {non_standard_cols}")
-
-    # Mixed data types detection
-    mixed_columns = []
-    for col in dataset.columns:
-        col_types = dataset[col].apply(type).nunique()
-        if col_types > 1:
-            mixed_columns.append(col)
-
-    if mixed_columns:
-        issues_detected = True
-        st.warning(f"The following columns have mixed data types: {mixed_columns}")
-
-    # Summary of issues
-    if issues_detected:
-        st.error("Issues detected in the dataset. Please resolve them before proceeding.")
-    else:
+    # Outcome summary
+    if not issues_detected:
         st.success("No issues detected in the dataset. Ready to proceed.")
