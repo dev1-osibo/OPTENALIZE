@@ -3,7 +3,7 @@ import streamlit as st
 from io import BytesIO
 import random
 from datetime import datetime
-import streamlit_analytics2 as streamlit_analytics #import streamlit analytics library
+
 
 # Initialize session state management
 if "action_log" not in st.session_state:
