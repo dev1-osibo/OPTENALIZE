@@ -1,6 +1,6 @@
-Column1,Column2,Column3
-1.0,A,
-,,
-3.0,C,
-,D,
-5.0,,
+NumericColumn,NonNumericColumn
+1,A
+2,B
+A,3
+4,D
+5,E
