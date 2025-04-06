@@ -177,36 +177,35 @@ def remove_high_missing_columns(dataset):
 
 # Main application workflow
 def main():
-    with streamlit_analytics.track(): #wrap the main app logic within this block
-        st.title("Enterprise Data Health Center")
+    st.title("Enterprise Data Health Center")
 
-        # File upload with format detection
-        uploaded_file = st.file_uploader("Upload Dataset", type=["csv", "xlsx", "parquet"])
-        if uploaded_file:
-            file_type = uploaded_file.name.split('.')[-1].lower()
-            try:
-                if file_type == "csv":
-                    dataset = pd.read_csv(uploaded_file, low_memory=False)
-                elif file_type == "xlsx":
-                    dataset = pd.read_excel(uploaded_file)
-                elif file_type == "parquet":
-                    dataset = pd.read_parquet(uploaded_file)
+    # File upload with format detection
+    uploaded_file = st.file_uploader("Upload Dataset", type=["csv", "xlsx", "parquet"])
+    if uploaded_file:
+        file_type = uploaded_file.name.split('.')[-1].lower()
+        try:
+            if file_type == "csv":
+                dataset = pd.read_csv(uploaded_file, low_memory=False)
+            elif file_type == "xlsx":
+                dataset = pd.read_excel(uploaded_file)
+            elif file_type == "parquet":
+                dataset = pd.read_parquet(uploaded_file)
 
-                # Preserve original data
-                if st.session_state["original_dataset"] is None:
-                    st.session_state["original_dataset"] = dataset.copy()
+            # Preserve original data
+            if st.session_state["original_dataset"] is None:
+                st.session_state["original_dataset"] = dataset.copy()
 
-                # Interactive workflow
-                run_precheck(dataset)
-                run_cleaning_workflow(dataset)
+            # Interactive workflow
+            run_precheck(dataset)
+            run_cleaning_workflow(dataset)
 
-                # Export functionality
-                st.subheader("Data Export")
-                dataset.to_csv("cleaned_data.csv", index=False)
-                st.download_button("Download Cleaned Dataset", "cleaned_data.csv")
+            # Export functionality
+            st.subheader("Data Export")
+            dataset.to_csv("cleaned_data.csv", index=False)
+            st.download_button("Download Cleaned Dataset", "cleaned_data.csv")
 
-            except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
+        except Exception as e:
+            st.error(f"Error processing file: {str(e)}")
 
 def log_action(message):
     """Audit logging with timestamps"""
