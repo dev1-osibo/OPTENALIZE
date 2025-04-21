@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 import seaborn as sns
 import matplotlib.pyplot as plt
 import missingno as msno
+from sklearn.impute import SimpleImputer
 
 # Initialize session state management
 if "action_log" not in st.session_state:
@@ -31,23 +32,11 @@ def calculate_quality_score(dataset):
         "duplicate_rows": 1 - (dataset.duplicated().sum() / len(dataset) if len(dataset) > 0 else 0),
         "type_consistency": sum(len(dataset[col].apply(type).unique()) == 1 for col in dataset.columns) / len(dataset.columns) if len(dataset.columns) > 0 else 0
     }
+    
     # Weighted average of metrics
     weights = {"missing_data": 0.4, "duplicate_rows": 0.3, "type_consistency": 0.3}
     score = sum(metrics[m] * weights[m] for m in metrics) * 100
     return round(score, 1)
-    
-# Utility: Detect likely year column 
-def is_likely_year_column(col_name, series):
-    """
-    Heuristically determine if a column likely represents years (e.g., 1990, 2022).
-    - Matches keywords in column name.
-    - Checks for consistent 4-digit numeric values (with/without commas).
-    """
-    name_match = any(keyword in col_name.lower() for keyword in ["year", "date", "birth", "decade"])
-    # Remove commas and check if most non-null entries are 4-digit numbers
-    cleaned_series = series.dropna().astype(str).str.replace(",", "")
-    numeric_format_match = cleaned_series.str.match(r"^\d{4}$").mean() > 0.6
-    return name_match and numeric_format_match
 
 # AI-powered issue detection and recommendations
 def generate_ai_recommendations(dataset):
@@ -62,7 +51,7 @@ def generate_ai_recommendations(dataset):
             severity = "High" if pct > 0.3 else "Medium" if pct > 0.1 else "Low"
             
             # Recommend strategy based on data type
-            if pd.api.types.is_numeric_dtype(dataset[col]) and not is_likely_year_column(col, dataset[col]):
+            if pd.api.types.is_numeric_dtype(dataset[col]):
                 strategy = "mean"
                 description = f"Fill missing values in '{col}' with column mean/median"
             else:
@@ -104,18 +93,6 @@ def generate_ai_recommendations(dataset):
                 "params": {"column": col},
                 "auto_fix": True
             })
-    
-    # Detect and standardize year-like columns
-    if is_likely_year_column(col, dataset[col]):
-        recommendations.append({
-            "issue": "Year Format",
-            "column": col,
-            "severity": "Medium",
-            "description": f"Standardize year format in '{col}'",
-            "action": "standardize_year_format",
-            "params": {"column": col},
-            "auto_fix": True
-        })
     
     # Check for date columns that need standardization
     date_cols = [col for col in dataset.columns if "date" in col.lower() or "time" in col.lower()]
@@ -212,12 +189,6 @@ def apply_fixes(dataset, selected_recommendations):
                 log_action(f"Standardized dates in '{col}'")
             except:
                 pass
-        
-        elif action == "standardize_year_format":
-            col = params["column"]
-            df[col] = pd.to_datetime(df[col].astype(str).str.replace(",", ""), errors='coerce').dt.year
-            log_action(f"Standardized year format in '{col}'")
-
                 
         elif action == "remove_high_missing":
             columns = params["columns"]
@@ -252,10 +223,6 @@ def display_quality_dashboard(dataset, recommendations):
     
     score = st.session_state["data_quality_score"]
     
-    if score is None:
-        score = calculate_quality_score(dataset)
-        st.session_state["data_quality_score"] = score
-      
     # Create columns for metrics
     col1, col2, col3 = st.columns(3)
     
@@ -300,9 +267,7 @@ def display_quality_dashboard(dataset, recommendations):
 
 # Get color based on score
 def get_score_color(score):
-    if score is None:
-        return "gray"
-    elif score >= 80:
+    if score >= 80:
         return "green"
     elif score >= 50:
         return "orange"
@@ -310,7 +275,7 @@ def get_score_color(score):
         return "red"
 
 # Generate comprehensive data visualizations
-def generate_data_visualizations(dataset, key_suffix="default"):
+def generate_data_visualizations(dataset):
     """Generate comprehensive data visualizations for analysis"""
     st.subheader("Data Visualizations")
     
@@ -327,7 +292,7 @@ def generate_data_visualizations(dataset, key_suffix="default"):
         
         if numeric_cols:
             # Let user select a numeric column
-            selected_num_col = st.selectbox("Select numeric column:", numeric_cols, key=f"selectbox_numeric_{key_suffix}")
+            selected_num_col = st.selectbox("Select numeric column:", numeric_cols)
             
             # Create distribution plot with Plotly
             fig = make_subplots(rows=2, cols=1, 
@@ -360,7 +325,7 @@ def generate_data_visualizations(dataset, key_suffix="default"):
         
         if categorical_cols:
             # Let user select a categorical column
-            selected_cat_col = st.selectbox("Select categorical column:", categorical_cols, key=f"selectbox_categorical_{key_suffix}")
+            selected_cat_col = st.selectbox("Select categorical column:", categorical_cols)
             
             # Create bar chart for categorical data
             value_counts = dataset[selected_cat_col].value_counts().reset_index()
@@ -470,12 +435,9 @@ def generate_data_visualizations(dataset, key_suffix="default"):
         
         if numeric_cols:
             # Let user select a column
-            selected_col = st.selectbox(
-                "Select column for outlier detection:",
-                numeric_cols,
-                key=f"outlier_col_{key_suffix}"
-            )           
-# Calculate IQR
+            selected_col = st.selectbox("Select column for outlier detection:", numeric_cols, key="outlier_col")
+            
+            # Calculate IQR
             Q1 = dataset[selected_col].quantile(0.25)
             Q3 = dataset[selected_col].quantile(0.75)
             IQR = Q3 - Q1
@@ -529,7 +491,7 @@ def generate_data_visualizations(dataset, key_suffix="default"):
             
             # Show outlier values
             if len(outliers) > 0:
-                if st.checkbox("Show Outlier Values", key=f"show_outliers_{key_suffix}"):
+                with st.expander("View Outlier Values"):
                     st.write(outliers)
         else:
             st.info("No numeric columns available for outlier detection.")
@@ -612,7 +574,7 @@ def main():
                 # Continue button
                 if st.button("Continue to Analysis →"):
                     st.session_state["current_step"] = 2
-                    st.rerun()
+                    st.experimental_rerun()
                 
             except Exception as e:
                 st.error(f"Error loading file: {str(e)}")
@@ -649,6 +611,7 @@ def main():
                     st.markdown(f"{severity_color[rec['severity']]} **{rec['issue']}**: {rec['description']}")
             
             # Add data visualizations
+            with st.expander("Explore Data Visualizations", expanded=True):
                 generate_data_visualizations(dataset)
             
             # Navigation buttons
@@ -656,16 +619,16 @@ def main():
             with col1:
                 if st.button("← Back to Upload"):
                     st.session_state["current_step"] = 1
-                    st.rerun()
+                    st.experimental_rerun()
             with col2:
                 if st.button("Continue to Cleaning →"):
                     st.session_state["current_step"] = 3
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             st.warning("Please upload a dataset first.")
             if st.button("Go to Upload"):
                 st.session_state["current_step"] = 1
-                st.rerun()
+                st.experimental_rerun()
     
     # Step 3: Clean Data
     elif st.session_state["current_step"] == 3:
@@ -735,16 +698,16 @@ def main():
             with col1:
                 if st.button("← Back to Analysis"):
                     st.session_state["current_step"] = 2
-                    st.rerun()
+                    st.experimental_rerun()
             with col2:
                 if st.button("Continue to Export →"):
                     st.session_state["current_step"] = 4
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             st.warning("Please upload a dataset first.")
             if st.button("Go to Upload"):
                 st.session_state["current_step"] = 1
-                st.rerun()
+                st.experimental_rerun()
     
     # Step 4: Review & Export
     elif st.session_state["current_step"] == 4:
@@ -801,10 +764,10 @@ def main():
             # Data visualizations
             with st.expander("Data Visualizations"):
                 st.write("### Before Cleaning")
-                generate_data_visualizations(st.session_state["original_dataset"], key_suffix="original")
+                generate_data_visualizations(st.session_state["original_dataset"])
                 
                 st.write("### After Cleaning")
-                generate_data_visualizations(st.session_state["cleaned_dataset"], key_suffix="cleaned")
+                generate_data_visualizations(st.session_state["cleaned_dataset"])
             
             # Export options
             st.subheader("Export Options")
@@ -846,7 +809,7 @@ def main():
             with col1:
                 if st.button("← Back to Cleaning"):
                     st.session_state["current_step"] = 3
-                    st.rerun()
+                    st.experimental_rerun()
             with col2:
                 if st.button("Start New Project"):
                     # Reset session state
@@ -854,18 +817,18 @@ def main():
                         del st.session_state[key]
                     st.session_state["action_log"] = []
                     st.session_state["current_step"] = 1
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             if "original_dataset" in st.session_state:
                 st.warning("Please complete the cleaning step first.")
                 if st.button("Go to Cleaning"):
                     st.session_state["current_step"] = 3
-                    st.rerun()
+                    st.experimental_rerun()
             else:
                 st.warning("Please upload a dataset first.")
                 if st.button("Go to Upload"):
                     st.session_state["current_step"] = 1
-                    st.rerun()
+                    st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
